@@ -1,0 +1,2027 @@
+<title>PSGen_histo</title>
+
+<style>
+/* ========================================================================
+   Tokens. Light is the bare :root. Dark is redefined twice -- once behind
+   prefers-color-scheme (guarded so an explicit light choice wins) and once
+   behind the [data-theme="dark"] stamp. No component ever declares a colour
+   outside this block.
+   ======================================================================== */
+:root {
+  --ground:      #F2F4F8;
+  --surface:     #FFFFFF;
+  --sunken:      #E9EDF4;
+  --ink:         #131826;
+  --ink-2:       #4C5566;
+  --ink-3:       #79839A;
+  --rule:        #D3DAE6;
+  --rule-2:      #E4E9F1;
+  --accent:      #2E45A3;
+  --accent-soft: #E3E8F8;
+  --ochre:       #8A5A12;
+  --ochre-soft:  #F6ECDC;
+  --good:        #1F6B4E;
+  --good-soft:   #E0F0E8;
+  --code-bg:     #F8FAFD;
+  --code-rule:   #DFE5EF;
+  --t-com:       #79839A;
+  --t-str:       #8A5A12;
+  --t-num:       #1F6B4E;
+  --t-kw:        #2E45A3;
+  --shadow:      0 1px 2px rgba(19,24,38,.05), 0 8px 24px -14px rgba(19,24,38,.22);
+
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", "IBM Plex Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --serif: "Iowan Old Style", Charter, "Source Serif 4", "Source Serif Pro", Palatino, Georgia, serif;
+
+  --measure: 72ch;
+  --pad: clamp(1rem, 3.2vw, 2.6rem);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:      #0F131C;
+    --surface:     #151A26;
+    --sunken:      #1B2130;
+    --ink:         #E6EAF2;
+    --ink-2:       #A3AEC2;
+    --ink-3:       #7A8599;
+    --rule:        #2A3244;
+    --rule-2:      #212938;
+    --accent:      #8DA2F0;
+    --accent-soft: #1C2440;
+    --ochre:       #DFAE6C;
+    --ochre-soft:  #2C2417;
+    --good:        #63C79B;
+    --good-soft:   #14261E;
+    --code-bg:     #121724;
+    --code-rule:   #262E40;
+    --t-com:       #6E7A90;
+    --t-str:       #DFAE6C;
+    --t-num:       #63C79B;
+    --t-kw:        #8DA2F0;
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 10px 26px -16px rgba(0,0,0,.8);
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground:      #0F131C;
+  --surface:     #151A26;
+  --sunken:      #1B2130;
+  --ink:         #E6EAF2;
+  --ink-2:       #A3AEC2;
+  --ink-3:       #7A8599;
+  --rule:        #2A3244;
+  --rule-2:      #212938;
+  --accent:      #8DA2F0;
+  --accent-soft: #1C2440;
+  --ochre:       #DFAE6C;
+  --ochre-soft:  #2C2417;
+  --good:        #63C79B;
+  --good-soft:   #14261E;
+  --code-bg:     #121724;
+  --code-rule:   #262E40;
+  --t-com:       #6E7A90;
+  --t-str:       #DFAE6C;
+  --t-num:       #63C79B;
+  --t-kw:        #8DA2F0;
+  --shadow:      0 1px 2px rgba(0,0,0,.4), 0 10px 26px -16px rgba(0,0,0,.8);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 16.5px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- shell ---------- */
+
+.shell { max-width: 1240px; margin: 0 auto; padding: 0 var(--pad) 6rem; }
+
+.masthead {
+  padding: clamp(2rem, 6vw, 3.6rem) 0 0;
+  display: flex; flex-direction: column; gap: .9rem;
+}
+.eyebrow {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--accent); margin: 0;
+}
+h1 {
+  font-family: var(--mono); font-weight: 600;
+  font-size: clamp(1.7rem, 4.6vw, 2.5rem); letter-spacing: -.02em;
+  line-height: 1.08; margin: 0; text-wrap: balance;
+}
+.standfirst {
+  max-width: var(--measure); margin: 0; color: var(--ink-2); font-size: 1.05rem;
+}
+
+/* The adapted-grid rule: VEGAS bin edges, crowded where the Z peak is. */
+.gridrule { display: block; width: 100%; height: 22px; color: var(--rule); margin: .4rem 0 0; }
+.gridrule .peak { color: var(--accent); }
+
+/* ---------- tabs ---------- */
+
+.tabbar {
+  position: sticky; top: 0; z-index: 20;
+  background: var(--ground);
+  background: color-mix(in srgb, var(--ground) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--rule);
+  margin: 1.6rem 0 2.4rem;
+  display: flex; gap: .15rem; overflow-x: auto; scrollbar-width: thin;
+}
+.tabbar button {
+  appearance: none; background: none; border: 0;
+  border-bottom: 2px solid transparent;
+  font-family: var(--mono); font-size: 12.5px; letter-spacing: .04em;
+  color: var(--ink-3); padding: .85rem .95rem; cursor: pointer;
+  white-space: nowrap; transition: color .12s ease, border-color .12s ease;
+}
+.tabbar button:hover { color: var(--ink); }
+.tabbar button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.tabbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; border-radius: 3px; }
+.tabbar .idx { color: var(--ink-3); margin-right: .5rem; }
+.tabbar button[aria-selected="true"] .idx { color: var(--accent); }
+
+/* ---------- layout ---------- */
+
+.panel[hidden] { display: none; }
+.panel { display: grid; grid-template-columns: 1fr; gap: 2.6rem; align-items: start; }
+
+@media (min-width: 1080px) {
+  .panel { grid-template-columns: minmax(0,1fr) 202px; column-gap: 3rem; }
+  .toc { position: sticky; top: 4.4rem; }
+}
+
+.toc { font-family: var(--mono); font-size: 11.5px; line-height: 1.55; }
+.toc p { margin: 0 0 .7rem; letter-spacing: .13em; text-transform: uppercase; color: var(--ink-3); font-size: 10px; }
+.toc a { display: block; color: var(--ink-2); text-decoration: none; padding: .22rem 0 .22rem .7rem; border-left: 2px solid var(--rule-2); }
+.toc a:hover { color: var(--accent); border-left-color: var(--accent); }
+@media (max-width: 1079px) { .toc { display: none; } }
+
+.flow { display: flex; flex-direction: column; gap: 2.2rem; min-width: 0; }
+
+/* ---------- headings ---------- */
+
+h2 {
+  font-family: var(--mono); font-weight: 600; font-size: 1.22rem;
+  letter-spacing: -.01em; margin: 1.4rem 0 0; padding-top: 1.4rem;
+  border-top: 1px solid var(--rule); text-wrap: balance;
+}
+.flow > h2:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+h3 {
+  font-family: var(--mono); font-weight: 600; font-size: .96rem;
+  margin: .6rem 0 -.4rem; color: var(--ink); letter-spacing: -.005em;
+}
+h3 .n { color: var(--accent); margin-right: .5rem; font-weight: 500; }
+
+p { max-width: var(--measure); margin: 0; }
+p + p { margin-top: .9rem; }
+ul, ol { max-width: var(--measure); margin: 0; padding-left: 1.25rem; }
+li + li { margin-top: .4rem; }
+strong { font-weight: 600; }
+em { font-style: italic; color: var(--ink); }
+
+a { color: var(--accent); }
+
+code, kbd { font-family: var(--mono); }
+p code, li code, td code, th code, dd code, dt code, figcaption code {
+  font-size: .855em; background: var(--sunken); border: 1px solid var(--rule-2);
+  border-radius: 3px; padding: .06em .3em; color: var(--ink);
+}
+
+/* ---------- code blocks ---------- */
+
+figure.code { margin: 0; min-width: 0; }
+figure.code figcaption {
+  display: flex; align-items: center; gap: .75rem;
+  font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+  background: var(--sunken); border: 1px solid var(--code-rule); border-bottom: 0;
+  border-radius: 6px 6px 0 0; padding: .45rem .7rem;
+}
+figure.code figcaption .path { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+figure.code figcaption .tag {
+  font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase;
+  padding: .12rem .4rem; border-radius: 3px; flex: none;
+}
+.tag.was { background: var(--ochre-soft); color: var(--ochre); }
+.tag.now { background: var(--accent-soft); color: var(--accent); }
+figure.code .copy {
+  margin-left: auto; flex: none; appearance: none; cursor: pointer;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+  background: var(--surface); color: var(--ink-2);
+  border: 1px solid var(--rule); border-radius: 4px; padding: .2rem .55rem;
+  transition: color .12s ease, border-color .12s ease;
+}
+figure.code .copy:hover { color: var(--accent); border-color: var(--accent); }
+figure.code .copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+figure.code .copy[data-done="1"] { color: var(--good); border-color: var(--good); }
+figure.code pre {
+  margin: 0; overflow-x: auto; background: var(--code-bg);
+  border: 1px solid var(--code-rule); border-radius: 0 0 6px 6px;
+  padding: .85rem .9rem; font-size: 12.3px; line-height: 1.62;
+  tab-size: 4;
+}
+figure.code code { color: var(--ink); white-space: pre; }
+.t-com { color: var(--t-com); font-style: italic; }
+.t-str { color: var(--t-str); }
+.t-num { color: var(--t-num); }
+.t-kw  { color: var(--t-kw); }
+
+/* ---------- then / now ---------- */
+
+.thennow { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+@media (min-width: 900px) { .thennow { grid-template-columns: 1fr 1fr; } }
+
+/* ---------- callouts ---------- */
+
+.note {
+  border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+  background: var(--surface); border-radius: 0 6px 6px 0;
+  padding: .85rem 1rem; box-shadow: var(--shadow);
+}
+.note.trap { border-left-color: var(--ochre); }
+.note.check { border-left-color: var(--good); }
+.note > .lbl {
+  display: block; font-family: var(--mono); font-size: 10px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: .35rem;
+}
+.note.trap > .lbl { color: var(--ochre); }
+.note.check > .lbl { color: var(--good); }
+.note p, .note ul { max-width: none; }
+
+/* ---------- tables ---------- */
+
+.tw { overflow-x: auto; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 12.2px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: .5rem .7rem; border-bottom: 1px solid var(--rule-2); vertical-align: top; }
+thead th { color: var(--ink-3); font-weight: 500; font-size: 10px; letter-spacing: .11em; text-transform: uppercase; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+td.num { text-align: right; }
+td .was { color: var(--ochre); }
+td .now { color: var(--accent); }
+
+/* ---------- headline figures ---------- */
+
+.figs { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+@media (min-width: 820px) { .figs { grid-template-columns: repeat(3, 1fr); } }
+.fig {
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 6px;
+  padding: .9rem 1rem; display: flex; flex-direction: column; gap: .3rem;
+  box-shadow: var(--shadow);
+}
+.fig .who { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+.fig .val { font-family: var(--mono); font-size: 1.02rem; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.fig .val b { font-weight: 600; }
+.fig .sub { font-family: var(--mono); font-size: 11px; color: var(--ink-2); line-height: 1.5; }
+
+/* ---------- timeline ---------- */
+
+.tl { display: flex; flex-direction: column; gap: 0; font-family: var(--mono); font-size: 12.4px; }
+.tl .row { display: grid; grid-template-columns: 9ch 1fr; gap: 1rem; padding: .7rem 0; border-top: 1px solid var(--rule-2); align-items: baseline; }
+.tl .row:first-child { border-top: 0; }
+.tl .sha { color: var(--accent); }
+.tl .sha.wip { color: var(--ochre); }
+.tl .what { color: var(--ink-2); }
+.tl .what b { color: var(--ink); font-weight: 600; display: block; }
+
+/* ---------- pipeline diagram ---------- */
+
+.diagram { overflow-x: auto; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); padding: 1rem; }
+.diagram svg { display: block; min-width: 760px; width: 100%; height: auto; }
+.d-box { fill: var(--sunken); stroke: var(--rule); }
+.d-box-a { fill: var(--accent-soft); stroke: var(--accent); }
+.d-box-w { fill: var(--ochre-soft); stroke: var(--ochre); }
+.d-hull { fill: none; stroke: var(--rule); stroke-dasharray: 3 3; }
+.d-t { fill: var(--ink); font-family: var(--mono); font-size: 11px; }
+.d-t2 { fill: var(--ink-3); font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em; }
+.d-ta { fill: var(--accent); font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em; }
+.d-tw { fill: var(--ochre); font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em; }
+.d-arr { stroke: var(--ink-3); fill: none; }
+.d-head { fill: var(--ink-3); }
+
+/* ---------- loose ends ---------- */
+
+.ends { display: flex; flex-direction: column; gap: .6rem; }
+.end {
+  display: grid; grid-template-columns: 2.6rem 1fr; gap: .3rem 1rem;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 6px;
+  padding: .8rem 1rem;
+}
+.end .k { font-family: var(--mono); font-size: 11px; color: var(--ochre); letter-spacing: .06em; padding-top: .12rem; }
+.end .b { min-width: 0; }
+.end .b h4 { font-family: var(--mono); font-size: .87rem; font-weight: 600; margin: 0 0 .25rem; letter-spacing: -.005em; }
+.end .b p { font-size: .95rem; color: var(--ink-2); max-width: none; }
+
+dl.keys { margin: 0; font-size: .97rem; }
+dl.keys dt { font-family: var(--mono); font-size: 12.3px; color: var(--accent); margin-top: .8rem; }
+dl.keys dt:first-child { margin-top: 0; }
+dl.keys dd { margin: .15rem 0 0; color: var(--ink-2); max-width: var(--measure); }
+
+footer.foot {
+  margin-top: 3rem; padding-top: 1.2rem; border-top: 1px solid var(--rule);
+  font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
+</style>
+
+<div class="shell">
+
+<header class="masthead">
+  <p class="eyebrow">p p &rarr; e+ e&minus; at leading order &middot; internal reference</p>
+  <h1>PSGen_histo</h1>
+  <p class="standfirst">What the phase space used to be and what it is now, and how the distributions
+  came to be filled inside the run that produces the cross section. Every claim on this page is
+  quoted from the tree at <code>ba6cb4f</code> plus the uncommitted working copy.</p>
+  <svg class="gridrule" viewBox="0 0 1000 22" preserveAspectRatio="none" aria-hidden="true">
+    <line x1="0" y1="21" x2="1000" y2="21" stroke="currentColor" stroke-width="1"/>
+    <g stroke="currentColor" stroke-width="1">
+      <line x1="8" y1="12" x2="8" y2="21"/><line x1="62" y1="12" x2="62" y2="21"/>
+      <line x1="128" y1="12" x2="128" y2="21"/><line x1="204" y1="12" x2="204" y2="21"/>
+      <line x1="288" y1="12" x2="288" y2="21"/><line x1="360" y1="12" x2="360" y2="21"/>
+      <line x1="418" y1="12" x2="418" y2="21"/><line x1="462" y1="12" x2="462" y2="21"/>
+    </g>
+    <g class="peak" stroke="currentColor" stroke-width="1.4">
+      <line x1="494" y1="5" x2="494" y2="21"/><line x1="512" y1="5" x2="512" y2="21"/>
+      <line x1="526" y1="3" x2="526" y2="21"/><line x1="538" y1="3" x2="538" y2="21"/>
+      <line x1="549" y1="3" x2="549" y2="21"/><line x1="562" y1="5" x2="562" y2="21"/>
+      <line x1="580" y1="5" x2="580" y2="21"/>
+    </g>
+    <g stroke="currentColor" stroke-width="1">
+      <line x1="606" y1="12" x2="606" y2="21"/><line x1="642" y1="12" x2="642" y2="21"/>
+      <line x1="690" y1="12" x2="690" y2="21"/><line x1="752" y1="12" x2="752" y2="21"/>
+      <line x1="826" y1="12" x2="826" y2="21"/><line x1="912" y1="12" x2="912" y2="21"/>
+      <line x1="994" y1="12" x2="994" y2="21"/>
+    </g>
+  </svg>
+</header>
+
+<nav class="tabbar" role="tablist" aria-label="Sections">
+  <button role="tab" id="t-overview" aria-controls="overview" aria-selected="true"><span class="idx">01</span>Overview</button>
+  <button role="tab" id="t-psgen"    aria-controls="psgen"    aria-selected="false"><span class="idx">02</span>PSGen</button>
+  <button role="tab" id="t-histo"    aria-controls="histo"    aria-selected="false"><span class="idx">03</span>Histogramming on the fly</button>
+  <button role="tab" id="t-running"  aria-controls="running"  aria-selected="false"><span class="idx">04</span>Running it</button>
+</nav>
+
+<main>
+
+<!-- ================================================================= -->
+<!-- 01  OVERVIEW                                                       -->
+<!-- ================================================================= -->
+<section class="panel" id="overview" role="tabpanel" aria-labelledby="t-overview">
+<div class="flow">
+
+  <h2 id="ov-what">What this build is</h2>
+  <p>Leading-order Drell&ndash;Yan, <code>p p &rarr; e+ e&minus;</code> at 13.6&nbsp;TeV. Phase space
+  comes from <strong>PSGen</strong> (Kolodziej), used as a mapping and nothing more. The integration
+  loop belongs to <strong>VEGAS</strong> (<code>vsup.f</code>), which therefore sees and adapts every
+  integration variable. Amplitudes come from <strong>OpenLoops</strong>, parton densities from
+  <strong>LHAPDF</strong> (<code>PDF4LHC21_40</code>). One run is one seed; a campaign is several
+  seeds merged by summing raw accumulators.</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 900 430" role="img" aria-label="Pipeline: the run card configures main, which hands the integrand to VEGAS; the frozen-grid production pass fills histograms; the report is written per seed and merged.">
+      <defs>
+        <marker id="ah" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+          <path class="d-head" d="M0,0 L7,3.5 L0,7 Z"/>
+        </marker>
+      </defs>
+
+      <!-- setup row -->
+      <rect class="d-box" x="8"   y="14" width="136" height="38" rx="4"/>
+      <text class="d-t" x="76" y="38" text-anchor="middle">input.input</text>
+      <path class="d-arr" d="M148,33 L186,33" marker-end="url(#ah)"/>
+      <rect class="d-box" x="192" y="14" width="126" height="38" rx="4"/>
+      <text class="d-t" x="255" y="38" text-anchor="middle">main.f90</text>
+      <text class="d-t2" x="330" y="24">book histograms from [histograms]</text>
+      <text class="d-t2" x="330" y="38">psgen_init &middot; LHAPDF &middot; OpenLoops</text>
+      <text class="d-t2" x="330" y="52">brm48i(seed)</text>
+
+      <path class="d-arr" d="M255,56 L255,84" marker-end="url(#ah)"/>
+
+      <!-- vsup hull -->
+      <rect class="d-hull" x="8" y="88" width="884" height="240" rx="8"/>
+      <text class="d-ta" x="22" y="106">VSUP &mdash; VEGAS</text>
+
+      <!-- adaptation -->
+      <rect class="d-box-w" x="22" y="118" width="250" height="58" rx="4"/>
+      <text class="d-t" x="147" y="141" text-anchor="middle">adaptation pass</text>
+      <text class="d-tw" x="147" y="160" text-anchor="middle">n_adapt &times; it_adapt &mdash; discarded</text>
+
+      <path class="d-arr" d="M276,147 L312,147" marker-end="url(#ah)"/>
+
+      <!-- production -->
+      <rect class="d-box-a" x="318" y="106" width="556" height="204" rx="4"/>
+      <text class="d-t" x="596" y="128" text-anchor="middle">production pass &mdash; grid frozen</text>
+      <text class="d-ta" x="596" y="145" text-anchor="middle">histo_begin_production arms the fill</text>
+
+      <rect class="d-box" x="338" y="158" width="152" height="34" rx="4"/>
+      <text class="d-t" x="414" y="180" text-anchor="middle">flo2_LO</text>
+      <path class="d-arr" d="M494,175 L524,175" marker-end="url(#ah)"/>
+      <rect class="d-box" x="530" y="158" width="152" height="34" rx="4"/>
+      <text class="d-t" x="606" y="180" text-anchor="middle">psgen_event</text>
+      <path class="d-arr" d="M686,175 L716,175" marker-end="url(#ah)"/>
+      <rect class="d-box" x="722" y="158" width="132" height="34" rx="4"/>
+      <text class="d-t" x="788" y="175" text-anchor="middle">OpenLoops</text>
+      <text class="d-t" x="788" y="188" text-anchor="middle" font-size="9.5">+ LHAPDF</text>
+
+      <path class="d-arr" d="M788,196 L788,214 L414,214 L414,232" marker-end="url(#ah)"/>
+      <rect class="d-box" x="338" y="236" width="212" height="34" rx="4"/>
+      <text class="d-t" x="444" y="258" text-anchor="middle">analysis_fill(p, 4, f&middot;vwgt)</text>
+      <text class="d-t2" x="562" y="250">&times; n_prod points</text>
+      <text class="d-t2" x="562" y="264">per iteration</text>
+
+      <path class="d-arr" d="M554,253 L554,288 L338,288" marker-end="url(#ah)"/>
+      <text class="d-ta" x="344" y="300">histo_end_iteration &mdash; folds hcur into hw, hww &nbsp;(&times; it_prod)</text>
+
+      <!-- out -->
+      <path class="d-arr" d="M450,332 L450,354" marker-end="url(#ah)"/>
+      <rect class="d-box" x="238" y="358" width="196" height="38" rx="4"/>
+      <text class="d-t" x="336" y="382" text-anchor="middle">analysis_write_report</text>
+      <path class="d-arr" d="M438,377 L474,377" marker-end="url(#ah)"/>
+      <rect class="d-box" x="480" y="358" width="160" height="38" rx="4"/>
+      <text class="d-t" x="560" y="382" text-anchor="middle">LO_&lt;seed&gt;.dat</text>
+      <path class="d-arr" d="M644,377 L680,377" marker-end="url(#ah)"/>
+      <rect class="d-box" x="686" y="358" width="146" height="38" rx="4"/>
+      <text class="d-t" x="759" y="376" text-anchor="middle">merge_runs.py</text>
+      <text class="d-t" x="759" y="390" text-anchor="middle" font-size="9.5">&rarr; LO.dat</text>
+    </svg>
+  </div>
+
+  <h2 id="ov-thesis">Why PSGen and not KALEU</h2>
+  <p>This is the decision the whole arrangement follows from, so it is worth stating before anything
+  else. KALEU owns its own integration loop: it draws its own random numbers and adapts the variables
+  it knows about. A variable that is not part of phase space &mdash; a Mellin-inversion contour
+  parameter, say &mdash; is invisible to it and can never be adapted. PSGen draws nothing. It consumes
+  <code>x(1:ndim)</code> and hands back momenta, so VEGAS keeps the loop and keeps seeing every
+  dimension, phase-space or not.</p>
+
+  <figure class="code">
+    <figcaption><span class="path">LO_check_DY/integrand.f90:4&ndash;15</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">! Four VEGAS dimensions:
+!   yy(1), yy(2)   the beam momentum fractions x1, x2, thrown flat
+!   yy(3), yy(4)   handed to PSGen as the final-state phase-space variables
+!
+! All four are ordinary VEGAS dimensions and all four get adapted. That is the
+! point of driving PSGen rather than letting a generator own the loop: an extra
+! non-phase-space variable -- a Mellin contour, say -- would simply be yy(5).
+!
+! NOTHING HERE ASSUMES TWO FINAL-STATE PARTICLES. x1 and x2 are handed over as
+! they come, and the mass window is applied to m(e+e-) rebuilt from the
+! generated momenta. Both statements stay true when a gluon is added: only the
+! leg count and psgen_ndim change.</code></pre>
+  </figure>
+
+  <div class="note">
+    <span class="lbl">Read this correctly</span>
+    <p>There is <strong>no Mellin machinery in this tree</strong>. The comment above is the argument
+    for the design, not a description of code that exists. No contour, no <em>N</em>-space variable,
+    no minimal prescription. The whole point is that <code>yy(5)</code> is available when it is
+    wanted.</p>
+  </div>
+
+  <h2 id="ov-timeline">How it got here</h2>
+  <div class="tl">
+    <div class="row"><span class="sha">f2271db</span><span class="what"><b>First commit, PSGen dropped in</b>
+      Kinematics still from the hand-written <code>kinvar2</code>. PSGen present but mis-wired and
+      followed by a bare <code>stop</code>, so the program aborted at the first point. Distributions
+      came from re-running the whole integration once per mass point.</span></div>
+    <div class="row"><span class="sha">2006b63</span><span class="what"><b>Tree stripped to the PSGen LO path</b>
+      <code>psgen_interface.f90</code> written; PSGen trimmed to the 27 sources reachable at
+      <code>nkin = 1</code>; <code>carlos.f</code> deliberately dropped. Output of a whole run:
+      three numbers.</span></div>
+    <div class="row"><span class="sha">ba6cb4f</span><span class="what"><b>Distributions on the fly, and a keyed card</b>
+      <code>histogram_mod</code>, <code>analysis_mod</code>, <code>observables_mod</code>,
+      <code>input_card_mod</code>. Two hooks in <code>vsup.f</code>; pass sizes become arguments.
+      Verified to reproduce every printed digit of the previous commit.</span></div>
+    <div class="row"><span class="sha wip">working</span><span class="what"><b>Uncommitted &mdash; the seed campaign</b>
+      <code>./runLO &lt;seed&gt; [outdir]</code>, seed-tagged reports, <code>flush(6)</code> so a
+      redirected log tracks live, and the untracked <code>tools/</code>. Card retuned to match the
+      KALEU one.</span></div>
+  </div>
+
+  <h2 id="ov-numbers">Three numbers, three different cards</h2>
+  <p>These are easy to confuse and they are not the same run. The regression target quoted in
+  <code>main.f90</code>&rsquo;s header predates the working-tree card, which was realigned to the
+  KALEU one (dynamic scale, <code>mZ = 91.1880</code>, <code>gfermi = 1.204399e-5</code>).</p>
+
+  <div class="figs">
+    <div class="fig">
+      <span class="who">main.f90 header &middot; regression target</span>
+      <span class="val"><b>1.86226247e+06</b> &plusmn; 1.522e+03 fb</span>
+      <span class="sub">seed 40 &middot; 300k&times;10 then 3M&times;20<br>fixed muF = mZ &middot; gfermi 1.16638e-5<br>chi2/it 0.806 &middot; pull 0.0014</span>
+    </div>
+    <div class="fig">
+      <span class="who">one seed of the current card</span>
+      <span class="val"><b>1.97275844e+06</b> &plusmn; 2.984e+03 fb</span>
+      <span class="sub">seed 1002 &middot; 100k&times;10 then 1M&times;20<br>dynamic muF &middot; gfermi 1.204399e-5<br>chi2/it 0.9126 &middot; pull 0.0402</span>
+    </div>
+    <div class="fig">
+      <span class="who">merged campaign &middot; summary/run_00</span>
+      <span class="val"><b>1.9741065e+06</b> &plusmn; 8.748e+02 fb</span>
+      <span class="sub">12 seeds &middot; 240 production iterations<br>240M points total<br>seed consistency chi2/dof 1.686</span>
+    </div>
+  </div>
+
+  <h2 id="ov-files">What owns what</h2>
+  <div class="tw">
+  <table>
+    <thead><tr><th>File</th><th>Owns</th><th>Since</th></tr></thead>
+    <tbody>
+      <tr><td>LO_check_DY/main.f90</td><td>driver: card, CLI, init, integrate, report</td><td>pre-existing</td></tr>
+      <tr><td>LO_check_DY/integrand.f90</td><td><code>flo2_LO</code> &mdash; the VEGAS integrand</td><td>pre-existing</td></tr>
+      <tr><td>LO_check_DY/psgen_interface.f90</td><td>PSGen as a pure mapping; the traps</td><td>2006b63</td></tr>
+      <tr><td>vsup.f</td><td>VEGAS driver, <code>VEGAS_M</code>, BRM48 RNG</td><td>pre-existing</td></tr>
+      <tr><td>histogram_mod.f90</td><td><code>histo1d_type</code>, fill / fold / write</td><td>ba6cb4f, from KALEU</td></tr>
+      <tr><td>analysis_mod.f90</td><td>booking, observable dispatch, report</td><td>ba6cb4f, from KALEU</td></tr>
+      <tr><td>observables_mod.f90</td><td>observables on a leg set</td><td>ba6cb4f, verbatim from KALEU</td></tr>
+      <tr><td>input_card_mod.f90</td><td>the <code>[section] key = value</code> parser</td><td>ba6cb4f, verbatim from KALEU</td></tr>
+      <tr><td>misc_utils_mod.f90</td><td>reads the card into globals; <code>dot</code>; labels</td><td>rewritten in ba6cb4f</td></tr>
+      <tr><td>constants_mod.f90</td><td><code>hbarc2</code>, masses, <code>alpha_gfermi</code></td><td>pre-existing</td></tr>
+      <tr><td>phasespace.f90</td><td><code>kinvar2</code> &mdash; <span class="was">dead, still linked</span></td><td>pre-existing</td></tr>
+      <tr><td>tools/</td><td>seed campaign, merge, extract</td><td><span class="was">untracked</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="ov-ends">Loose ends</h2>
+  <p>Everything below was checked against the tree as it stands. None of it is a blocker; it is the
+  list of things a reader would otherwise have to rediscover.</p>
+
+  <div class="ends">
+    <div class="end"><span class="k">01</span><div class="b"><h4>Nothing since ba6cb4f is committed</h4>
+      <p><code>main.f90</code>, <code>vsup.f</code> and <code>input.input</code> are modified in the
+      working tree, and <code>tools/</code> is untracked. The entire seed-campaign workflow &mdash;
+      launcher, merger, extractor &mdash; currently exists only on disk.</p></div></div>
+
+    <div class="end"><span class="k">02</span><div class="b"><h4>The header regression target is unrunnable as written</h4>
+      <p><code>main.f90</code> quotes <code>1.86226247e+06 fb</code> for &ldquo;the card as
+      shipped&rdquo;, but that card had a fixed muF, <code>gfermi = 1.16638e-5</code> and 3M&times;20
+      production. The shipped card now gives <code>1.97275844e+06 fb</code>. Either the comment or
+      the card needs to move.</p></div></div>
+
+    <div class="end"><span class="k">03</span><div class="b"><h4>gfermi = 1.204399e-5 is worth confirming out loud</h4>
+      <p>3.3&thinsp;% above the PDG <code>1.1663787e-5</code>. Since <code>alpha &prop; G_F</code> in
+      <code>alpha_gfermi</code> and <code>sigma &prop; alpha&sup2;</code>, that is ~6.7&thinsp;% on the
+      cross section. It is not a typo &mdash; it matches the KALEU card exactly, as do
+      <code>mZ = 91.1880</code> and <code>dynamic = yes</code> &mdash; but nothing in the tree records
+      that the alignment was deliberate.</p></div></div>
+
+    <div class="end"><span class="k">04</span><div class="b"><h4>Two stale comments in psgen_interface.f90</h4>
+      <p>Lines 53 and 120 say the mass window is &ldquo;closed by the tau sampling&rdquo; and refer to
+      &ldquo;the tau/y sampling in the integrand&rdquo;. Neither is true here: <code>x1, x2</code> are
+      flat and the window is a rejection cut on reconstructed <code>m(ee)</code>. They describe the
+      sibling KALEU code.</p></div></div>
+
+    <div class="end"><span class="k">05</span><div class="b"><h4>Scale and PDF variations are not implemented</h4>
+      <p>Every accumulator is a plain 1D array and every header stamps <code>nvar = 1</code>,
+      <code>variation_order = central</code>. The file format leaves the column block where a
+      variation axis goes, and both Python tools already read it &mdash; the Fortran side is what is
+      missing.</p></div></div>
+
+    <div class="end"><span class="k">06</span><div class="b"><h4>ref_data/LO_total.txt does not exist in this tree</h4>
+      <p><code>main.f90</code>&rsquo;s header still discusses it and its 0.55&thinsp;% / ~7&sigma;
+      drift. The comparison it points at can only be made against a live KALEU run.</p></div></div>
+
+    <div class="end"><span class="k">07</span><div class="b"><h4>phasespace.f90 is dead but still linked</h4>
+      <p>No file anywhere does <code>use kinematics_mod</code>, yet
+      <code>$(OBJDIR)/phasespace.o</code> is still in the makefile&rsquo;s <code>OBJECTS</code>.
+      It is the old hand-written kinematics the PSGen switch replaced.</p></div></div>
+
+    <div class="end"><span class="k">08</span><div class="b"><h4>Single-lepton eta / y and dr(ll) are unavailable</h4>
+      <p>The integrand sums both beam orderings against one amplitude evaluation. Those rows ship
+      commented out, and it is the same reason no angular acceptance cut exists &mdash; which limits
+      how directly this can be compared against a cut-based reference.</p></div></div>
+
+    <div class="end"><span class="k">09</span><div class="b"><h4>merge_runs.py knows a block kind the Fortran never writes</h4>
+      <p><code>HISTOGRAM2D</code> is in <code>DATA_KINDS</code>, along with an <code>nvar &gt; 1</code>
+      layout. Forward compatibility, but it means the reader is ahead of the writer in two places.</p></div></div>
+
+    <div class="end"><span class="k">10</span><div class="b"><h4>No automated regression test</h4>
+      <p>The regression number lives in a source comment. Nothing runs it, and nothing would notice
+      if it stopped holding.</p></div></div>
+
+    <div class="end"><span class="k">11</span><div class="b"><h4>vsup.f&rsquo;s <code>logical plot</code> is vestigial</h4>
+      <p>Set in four places, read nowhere in the tree. It looks exactly like the histogramming
+      switch and is not &mdash; the real gate is <code>filling</code> in <code>analysis_mod</code>.</p></div></div>
+
+    <div class="end"><span class="k">12</span><div class="b"><h4>Small things in the card and the report</h4>
+      <p><code>mee_max = 0.0</code> resolves to <code>ecm</code>, so the header reads
+      <code>mee in [50.000,13600.000]</code> and is not a literal echo. Card keys echo lowercased, so
+      <code>mZ</code> appears as <code>mz</code>. <code>MAXENT = 256</code> is the nearest ceiling and
+      the shipped card already uses about 77 entries, five per histogram row.</p></div></div>
+  </div>
+
+</div>
+<aside class="toc">
+  <p>On this tab</p>
+  <a href="#ov-what">What this build is</a>
+  <a href="#ov-thesis">Why PSGen, not KALEU</a>
+  <a href="#ov-timeline">How it got here</a>
+  <a href="#ov-numbers">Three numbers</a>
+  <a href="#ov-files">What owns what</a>
+  <a href="#ov-ends">Loose ends</a>
+</aside>
+</section>
+
+<!-- ================================================================= -->
+<!-- 02  PSGEN                                                          -->
+<!-- ================================================================= -->
+<section class="panel" id="psgen" role="tabpanel" aria-labelledby="t-psgen" hidden>
+<div class="flow">
+
+  <h2 id="ps-what">PSGen is a mapping, not an integrator</h2>
+  <p><code>psgen()</code> never draws a random number. It takes <code>x(1:ndim)</code> in
+  <code>(0,1)</code> and returns the momenta, the initial-state flux factor and the phase-space
+  normalisation. Its own multichannel integrator, <code>carlos.f</code>, is deliberately not linked
+  &mdash; at <code>nkin = 1</code> it would have nothing to adapt, and linking it would put a second
+  sampler in the loop.</p>
+  <p>The linked set is the 27 sources reachable at <code>nkin = 1</code>:
+  <code>psgen &rarr; kincls &rarr; kinschnl &rarr; kin2_2 &rarr; kinff</code>, plus
+  <code>psncls</code>, <code>kinin</code>, <code>param_trans</code> and the cut and index
+  bookkeeping. Seventy-four higher-multiplicity kinematics and helpers, together with
+  <code>carlos.f</code> and <code>cs_sect.f</code>, sit in <code>LO_check_DY/.psgen_unused/</code>;
+  <code>PSGen_1.1/</code> is kept so more channels can be regenerated. The generated process is
+  fixed at <code>u u~ &rarr; e+ e&minus;</code> with <code>nexp = 4</code>, <code>nfsp = 2</code>,
+  <code>nkin = 1</code>.</p>
+
+  <h2 id="ps-before">Before</h2>
+  <p>At <code>f2271db</code> the kinematics were hand-written. <code>kinvar2</code> builds a 2&rarr;2
+  configuration directly in the lab frame from a single variable <code>v = xx(3)</code>, generates
+  no azimuth at all (<code>p3(2)</code> is identically zero), and carries no explicit Jacobian
+  &mdash; the whole <code>dv d&phi;</code> factor was folded into a constant <code>xnorm</code>
+  downstream.</p>
+
+  <figure class="code">
+    <figcaption><span class="tag was">was</span><span class="path">phasespace.f90:13&ndash;58 &mdash; kinvar2</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">  subroutine kinvar2(xx, xxinvmass, p1, p2, p3, p4)
+    real(real64), intent(in)  :: xx(10)
+    real(real64), intent(out) :: xxinvmass
+    real(real64), intent(out) :: p1(0:3), p2(0:3), p3(0:3), p4(0:3)
+    real(real64) :: xa, xb, v, omv, srs2, s34
+
+    ! Extract variables
+    xa = xx(1)
+    xb = xx(2)
+    v  = xx(3)
+    omv = 1.0_real64 - v
+
+    srs2 = 0.5_real64 * sqrt(s)
+
+    ! Incoming parton 4-vectors
+    p1(0) = srs2 * xa
+    p1(1) = 0.0_real64
+    p1(2) = 0.0_real64
+    p1(3) = p1(0)
+
+    p2(0) = srs2 * xb
+    p2(3) = -p2(0)
+
+    ! Outgoing parton 4-vectors
+    p3(0) = srs2 * (xa * v + xb * omv)
+    p3(1) = sqrt(s * xa * xb * v * omv)
+    p3(2) = 0.0_real64
+    p3(3) = srs2 * (xa * v - xb * omv)
+
+     p4 = p1 + p2 - p3
+
+    ! Invariant mass of p3 + p4 system
+    s34 = 2.0_real64 * dot(p3, p4)
+    xxinvmass = sqrt(s34)
+  end subroutine kinvar2</code></pre>
+  </figure>
+
+  <p>PSGen was in the file at that commit, but wired experimentally and never allowed to run: the
+  beam fractions were re-read out of <code>yy(3)</code> and <code>yy(4)</code>, the third PSGen
+  variable came from <code>yy(5)</code>, <code>ndim</code> was passed as 3 for a two-body mapping,
+  and the block ended in a debug dump and a bare <code>stop</code>. The flavour sum was d and s only.</p>
+
+  <figure class="code">
+    <figcaption><span class="tag was">was</span><span class="path">git show f2271db:LO_check_DY/integrand.f90</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">    ipass = 0
+    xlow  = xq - eps
+    xhigh = xq + eps
+
+    ! Kinematics
+    call kinvar2(yy,xinvmass, p1, p2, p3, p4)
+    x(1) = yy(1)
+    x(2) = yy(2)
+    x(3) = yy(5)
+!    x(3) = yy(3)
+!    x(4) = yy(4)
+    xa  = 1d0 !yy(1)
+    xb  = 1d0 !yy(2)
+    xa  = yy(3)
+    xb  = yy(4)
+    call psgen(1,sqrt(s),xa,xb,x,3,flux,dlips)
+!if (dlips &gt; 0.0 ) print*,flux,dlips
+                  print*,flux,dlips
+	do j=1,4
+	print*,p(0,j),p(1,j),p(2,j),p(3,j)
+	enddo
+	stop</code></pre>
+  </figure>
+
+  <h2 id="ps-after">After &mdash; the wrapper and its three traps</h2>
+  <p>Everything <code>psgen_interface</code> exists to absorb is a sharp edge in <code>psgen.f</code>
+  itself. All three are real, all three are silent, and each one would produce plausible wrong
+  numbers rather than a crash.</p>
+
+  <div class="note trap">
+    <span class="lbl">Trap 1 &middot; flux goes stale</span>
+    <p><code>psgen</code> assigns <code>flux</code> only when the partonic energy differs from the
+    one it saw last (<code>psgen.f:48</code>, <code>ecm0</code> is <code>save</code>d). On a repeat it
+    leaves the caller&rsquo;s variable untouched. Upstream <code>cs_sect.f</code> copes with a
+    <code>save flux</code>; the wrapper does the same with <code>flux_saved</code>.</p>
+  </div>
+  <div class="note trap">
+    <span class="lbl">Trap 2 &middot; dlips is not zeroed on failure</span>
+    <p>When <code>kincls</code> fails, <code>psgen</code> skips its entire body
+    (<code>psgen.f:60</code>) and leaves <code>dlips</code> holding whatever the caller had in it
+    &mdash; which, in a loop, is the previous point&rsquo;s value. Zero it first, always.</p>
+  </div>
+  <div class="note trap">
+    <span class="lbl">Trap 3 &middot; fourmom::p is global, and partonic-CM</span>
+    <p>The momenta live in a module-level array that the next call overwrites, and they are in the
+    partonic centre-of-mass frame. Copy out immediately, then boost to the lab with the same
+    transform <code>psgen</code> uses internally when it imposes cuts.</p>
+  </div>
+
+  <figure class="code">
+    <figcaption><span class="tag now">now</span><span class="path">LO_check_DY/psgen_interface.f90:127&ndash;171</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">  subroutine psgen_event(ecm_had, xa, xb, xr, plab, flux, dlips)
+  real(dp), intent(in)  :: ecm_had, xa, xb
+  real(dp), intent(in)  :: xr(psgen_ndim)
+  real(dp), intent(out) :: plab(0:3, psgen_nexp)
+  real(dp), intent(out) :: flux, dlips
+
+  real(dp) :: pcm(0:3, psgen_nexp)
+  real(dp) :: vz, gz
+  integer  :: i
+  external :: psgen
+
+! TRAP: when kincls fails, psgen skips its entire body (psgen.f:60) and leaves
+! `dlips` with whatever the caller had in it. Zero it first, always.
+    dlips = 0.0_dp
+    flux  = 0.0_dp
+    plab  = 0.0_dp
+
+    call psgen(1, ecm_had, xa, xb, xr, psgen_ndim, flux, dlips)
+
+! The saved-flux workaround for the trap noted at the top of the module.
+    if (flux &gt; 0.0_dp) flux_saved = flux
+    flux = flux_saved
+
+    if (dlips &lt;= 0.0_dp) return
+
+! TRAP: fourmom::p is a global array that the next call overwrites. Copy out now.
+!
+! It also holds momenta in the PARTONIC CM frame. Boost to the lab with the same
+! transform psgen uses internally when it imposes cuts (psgen.f:64-73), because
+! everything downstream -- the dipole reduction, the PK terms, the ISR collinear
+! structure -- is written for lab-frame momenta.
+    pcm = p
+
+    vz = (xa - xb)/(xa + xb)
+    gz = 0.5_dp*(xa + xb)/sqrt(xa*xb)
+
+    do i = 1, psgen_nexp
+       plab(0,i) = gz*(pcm(0,i) + vz*pcm(3,i))
+       plab(1,i) = pcm(1,i)
+       plab(2,i) = pcm(2,i)
+       plab(3,i) = gz*(pcm(3,i) + vz*pcm(0,i))
+    end do
+
+  end subroutine psgen_event</code></pre>
+  </figure>
+
+  <h2 id="ps-init">What psgen_init switches off, and why</h2>
+  <p>The one-shot initialisation is mostly a list of PSGen defaults that would quietly change the
+  physics. The most consequential is <code>icuts = 0</code>: PSGen&rsquo;s <code>define_cuts.f</code>
+  ships with a 5&deg; lepton&ndash;beam cut and an <code>E_lep &gt; 5 GeV</code> cut
+  <em>enabled</em>. It must be set before <code>param_trans</code>, because
+  <code>define_cuts</code> branches on it.</p>
+
+  <figure class="code">
+    <figcaption><span class="tag now">now</span><span class="path">LO_check_DY/psgen_interface.f90:53&ndash;111 (abridged)</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">! No cuts inside PSGen. Two reasons. The mass window is closed by the tau
+! sampling instead, so there is nothing left to cut on here; and PSGen's
+! define_cuts.f ships with ictlb = 1 (5 degree lepton-beam) and ienl = 1
+! (E_lep &gt; 5 GeV) ENABLED, which would quietly bias the comparison against the
+! KALEU reference. Set before param_trans -- define_cuts branches on icuts.
+    icuts = 0
+
+! Phase-space normalization cross-check and the s/t/g channel filters: off.
+    ipsnrm = 0
+    ik_sch = 0
+    ik_tch = 0
+    ik_gch = 0
+    psnac  = 1.0d-3
+
+! Masses, particle names, cuts, particle indices, banner.
+    call param_trans(unit)
+
+! Massless external legs. The generated kinparams.f sets m = (mu0, mu0, me, me),
+! i.e. 5 MeV quarks and a 0.511 MeV electron, but OpenLoops is registered with
+! all of them massless -- momenta must sit on the mass shell it expects.
+! Overridden here rather than in PSGen/kinparams.f, which is generated code and
+! would lose the edit on regeneration.
+    m = 0.0_dp
+
+! Multichannel weights. With nkin = 1 this is just aw(1) = 1, but it is NOT
+! optional: psncls.f builds the phase-space weight as dlinv = sum_j aw(j)/dlips_j,
+! so an uninitialised aw makes every weight garbage.
+    aw     = 1.0_dp/real(nkin, dp)
+    iwkin  = 0
+    aw_w   = 0.0_dp
+    xmc(0) = 0.0_dp
+    do i = 1, nkin
+       xmc(i) = xmc(i-1) + aw(i)
+    end do</code></pre>
+  </figure>
+
+  <div class="note trap">
+    <span class="lbl">Stale comment</span>
+    <p>&ldquo;the mass window is closed by the tau sampling instead&rdquo; is not true of this build.
+    There is no tau sampling here &mdash; <code>x1</code> and <code>x2</code> are flat and the window
+    is a rejection cut on the reconstructed <code>m(ee)</code>. The sentence describes the sibling
+    KALEU code. Same for the &ldquo;tau/y sampling&rdquo; note on <code>psgen_event</code>.</p>
+  </div>
+
+  <h2 id="ps-rand">Where the two random numbers actually go</h2>
+  <p><code>psgen_ndim = 3*nfsp - 4</code>, which is 2 here, and both are consumed at the bottom of
+  the chain in <code>kinff</code>. <code>rand(1)</code> becomes the polar angle, <code>rand(2)</code>
+  the azimuth. The shifted forms &mdash; <code>ct = 2&middot;rand(1)</code> with
+  <code>pp*(ct-1)</code> rather than <code>ct = 2&middot;rand(1)-1</code> with <code>pp*ct</code>
+  &mdash; are a numerical-stability rewrite; the original lines are still there, commented out
+  directly above.</p>
+
+  <figure class="code">
+    <figcaption><span class="tag now">now</span><span class="path">LO_check_DY/PSGen/kinff.f:76&ndash;89</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f77">       if (imom == 1) then
+c        ct=dct*rand(1)-1.d0
+c        pst=pp*sqrt(1.d0-ct**2)
+        ct=dct*rand(1)
+        pst=pp*sqrt(ct*(2.d0-ct))
+        phi=dphi*rand(2)
+c        p1=(/e1,pst*cos(phi),pst*sin(phi),pp*ct/)
+        p1=(/e1,pst*cos(phi),pst*sin(phi),pp*(ct-1.d0)/)
+c        p2=(/e2,-p1(1),-p1(2),-p1(3)/)
+        p2=(/sqrt(m2**2+p1(1)**2+p1(2)**2+p1(3)**2),
+     &amp;                            -p1(1),-p1(2),-p1(3)/)
+       end if
+
+       dlips=cps*pp/ecm</code></pre>
+  </figure>
+
+  <p>The rest of the weight is assembled on the way back up. This is the arithmetic worth checking
+  by hand once, because it is what makes the switch away from <code>kinvar2</code> verifiable rather
+  than merely plausible.</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>Step</th><th>Source</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>kinff weight</td><td><code>cps = dct&middot;dphi/4 = &pi;</code>, massless <code>pp = ecm/2</code></td><td>dlips = &pi;/2</td></tr>
+      <tr><td>psncls, nkin = 1, aw(1) = 1</td><td><code>dlinv = &sum;_j aw(j)/dlips_j</code></td><td>dlinv = 2/&pi;</td></tr>
+      <tr><td>psgen</td><td><code>cps = (2&pi;)^(4&minus;3&middot;nfsp) = (2&pi;)&#8315;&sup2;</code></td><td>dlips = cps/dlinv = 1/(8&pi;)</td></tr>
+      <tr><td>kinin flux, massless</td><td><code>flux = 4&middot;ecm&middot;pp</code></td><td>flux = 2&middot;&#349;</td></tr>
+      <tr><td>integrand</td><td><code>hbarc2/flux &middot; sig &middot; dlips</code></td><td>hbarc2/(16&pi;&middot;&#349;)</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note check">
+    <span class="lbl">Why that matters</span>
+    <p><code>hbarc2/(16&pi;&middot;&#349;)</code> is identical to the
+    <code>xnorm = hbarc2/(16&thinsp;&pi;&thinsp;xa&thinsp;xb&thinsp;s)</code> the code used with the
+    hand-written kinematics. The two phase-space implementations therefore have to agree numerically,
+    and that is the check the switch was made against.</p>
+  </div>
+
+  <h2 id="ps-dims">The dimension budget</h2>
+  <div class="tw">
+  <table>
+    <thead><tr><th></th><th>f2271db</th><th>now</th></tr></thead>
+    <tbody>
+      <tr><td>VEGAS <code>nd</code></td><td class="was">5 (three used)</td><td class="now">4 = 2 + psgen_ndim</td></tr>
+      <tr><td>x1, x2</td><td class="was">yy(1), yy(2) &mdash; then re-read from yy(3), yy(4)</td><td class="now">yy(1), yy(2), flat, no jacobian</td></tr>
+      <tr><td>final state</td><td class="was">kinvar2 from yy(3); no azimuth</td><td class="now">xr(1:2) = yy(3:4) &rarr; cos&theta;, &phi;</td></tr>
+      <tr><td>mass selection</td><td class="was">xq &plusmn; 5 GeV window, one run per point</td><td class="now">[mee_min, mee_max] cut; binning does the rest</td></tr>
+      <tr><td>flavours</td><td class="was">d, s</td><td class="now">d, u, s, c, b &mdash; both beam orderings</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 id="ps-integrand">The integrand, in full</h2>
+  <p>Short enough to read whole, and every non-obvious line carries its reason. Three choices in here
+  are deliberate and would each be tempting to &ldquo;fix&rdquo;: flat beam fractions, the mass window
+  taken from rebuilt momenta rather than <code>x1 x2 s</code>, and the absence of <code>muR</code>.</p>
+
+  <figure class="code">
+    <figcaption><span class="tag now">now</span><span class="path">LO_check_DY/integrand.f90:42&ndash;113</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">    flo2_LO = 0d0
+
+!--- Beam momentum fractions -----------------------------------------------!
+! Flat, handed straight to PSGen, which takes x1 and x2 as arguments and never
+! generates them. No change of variables, so no jacobian.
+!
+! Deliberately kept free of any importance sampling. A tau = x1*x2 mapping
+! measures 25x better on the MC error at equal statistics, but the sampling is
+! then something the integrand has to get right for each multiplicity, and
+! keeping x1, x2 raw is what lets this integrand carry over to the real
+! emission unchanged. VEGAS still adapts these two dimensions like any other.
+    xa = yy(1)
+    xb = yy(2)
+    if (xa &lt;= 0d0 .or. xb &lt;= 0d0) return
+
+!--- Phase space -----------------------------------------------------------!
+    xr(1) = yy(3)
+    xr(2) = yy(4)
+
+    call psgen_event(sqrt(s), xa, xb, xr, plab, flux, dlips)
+    if (dlips &lt;= 0d0) return
+
+!--- Mass window -----------------------------------------------------------!
+! Rebuilt from the momenta, NOT from x1*x2*s. The two agree only at LO. Doing
+! it this way is what lets the same line survive the addition of a gluon, where
+! shat and m(ee)^2 part company.
+    q    = plab(:,3) + plab(:,4)
+    mee2 = dot(q, q)
+    if (mee2 &lt; mee_min2 .or. mee2 &gt; mee_max2) return
+
+!--- Parton luminosity and matrix element ----------------------------------!
+    if (scale_dynamic) then
+       muf = sqrt(mee2)
+    else
+       muf = xmuf
+    end if
+
+    call pdf(xa, muf, f1)
+    call pdf(xb, muf, f2)
+
+    call evaluate_born(plab(:,1), plab(:,2), plab(:,3), plab(:,4), amp)
+
+! Flavour sum over d, u, s, c, b. Both beam orderings share one amp(i): the
+! amplitude is NOT symmetric under swapping the incoming quark and antiquark --
+! that asymmetry is the forward-backward asymmetry -- but its antisymmetric part
+! integrates to zero over the full angular range, so for a total with no angular
+! cut this is exact. It stops being exact the moment an eta or cos(theta) cut
+! is introduced; at that point the two orderings need separate amplitudes.
+    sig = 0d0
+    do i = 1, 5
+       sig = sig + (f1(-i)*f2(i) + f1(i)*f2(-i))*amp(i)
+    end do
+
+!--- Weight ----------------------------------------------------------------!
+    flo2_LO = hbarc2/flux*sig*dlips
+
+!--- Distributions ---------------------------------------------------------!
+    call analysis_fill(plab, 4, flo2_LO*vwgt)</code></pre>
+  </figure>
+
+  <h3><span class="n">&rarr;</span>Why the beam fractions stay flat</h3>
+  <p>A <code>tau = x1 x2</code> mapping measures about 25&times; better on the Monte Carlo error at
+  equal statistics. It was not taken, because the sampling then becomes something the integrand has
+  to get right separately for each multiplicity. Keeping <code>x1, x2</code> raw is what lets this
+  integrand carry over to the real emission unchanged &mdash; and VEGAS adapts those two dimensions
+  anyway, which recovers part of what the mapping would have bought.</p>
+
+  <h3><span class="n">&rarr;</span>Why muR is missing rather than unused</h3>
+  <p>The tree amplitude carries no power of <code>gs</code>, so nothing in the integrand is allowed
+  to depend on the renormalisation scale. <code>xmur</code> is not imported at all &mdash; it is
+  carried elsewhere for labelling only. <code>muF</code> is taken from <code>m(e+e&minus;)</code>
+  rather than <code>sqrt(&#349;)</code>: the same number here, different the moment a gluon
+  appears, and this is the one that stays right.</p>
+
+  <h2 id="ps-tau">The contrast: what the KALEU tree does instead</h2>
+  <p>Worth putting side by side, because the two stale comments in <code>psgen_interface.f90</code>
+  describe this code, not the code above.</p>
+
+  <figure class="code">
+    <figcaption><span class="path">kaleu_checks/Drell-Yan_with_kaleu/src/mc/kaleu_interface.f90:223&ndash;255</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">! Generate x1,x2 with tau = x1*x2 confined to the window, distributed as
+! 1/tau within it (flat in ln tau) and refined by the grids.
+!   dx1 dx2 = dtau dy ,  y = ln(x1/x2)/2
+!   dtau/du1 = tau*(lntau_hi-lntau_lo) ,  dy/du2 = -ln tau
+  u1 = win%gtau%gnrt(ranfun()) ; w1 = win%gtau%wght()
+  dl    = win%lntau_hi - win%lntau_lo
+  lntau = win%lntau_lo + u1*dl
+  tau   = exp(lntau)
+  x2 = exp(lntau*u2)
+  x1 = tau/x2
+  win%w = tau*dl * (-lntau) * w1 * w2</code></pre>
+  </figure>
+
+  <h2 id="ps-vegas">The integrator PSGen is driven by</h2>
+  <p>PSGen&rsquo;s role only makes sense against what VEGAS is doing around it. The grid holds at most
+  <code>NDMX = 50</code> bins per axis with damping exponent <code>ALPH = 1.5</code>, and
+  <code>MDS = 1</code> means importance sampling <em>and</em> stratification. Two passes:
+  <code>ISTAT 1/3</code> refines the grid, <code>ISTAT 2</code> resets the cumulants so nothing from
+  the first pass survives, <code>ISTAT 4</code> integrates on the frozen grid.</p>
+  <p>One line ties the whole histogram normalisation together &mdash; the integrand&rsquo;s second
+  argument is the point weight <em>already divided by the iteration count</em>:</p>
+
+  <figure class="code">
+    <figcaption><span class="path">vsup.f:216 &mdash; inside VEGAS_M&rsquo;s point loop</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f77">         F=FXN(X,WGT/ITMX)*WGT</code></pre>
+  </figure>
+
+  <h2 id="ps-gluon">What survives the addition of a gluon</h2>
+  <ul>
+    <li><code>xa</code>, <code>xb</code> are handed over as they come, so the beam side is unchanged.</li>
+    <li>The mass window is applied to <code>m(ee)</code> rebuilt from momenta, so it stays correct
+    when <code>&#349;</code> and <code>m(ee)&sup2;</code> part company.</li>
+    <li><code>muF</code> is built from <code>m(ee)</code> for the same reason.</li>
+    <li>Only the leg count passed to <code>analysis_fill</code> and the value of
+    <code>psgen_ndim</code> change &mdash; and <code>psgen_ndim</code> is
+    <code>3*nfsp - 4</code>, so it changes itself.</li>
+  </ul>
+
+</div>
+<aside class="toc">
+  <p>On this tab</p>
+  <a href="#ps-what">Mapping, not integrator</a>
+  <a href="#ps-before">Before</a>
+  <a href="#ps-after">The three traps</a>
+  <a href="#ps-init">What init switches off</a>
+  <a href="#ps-rand">Where the randoms go</a>
+  <a href="#ps-dims">Dimension budget</a>
+  <a href="#ps-integrand">The integrand</a>
+  <a href="#ps-tau">Contrast with KALEU</a>
+  <a href="#ps-vegas">The integrator</a>
+  <a href="#ps-gluon">Adding a gluon</a>
+</aside>
+</section>
+
+<!-- ================================================================= -->
+<!-- 03  HISTOGRAMMING                                                  -->
+<!-- ================================================================= -->
+<section class="panel" id="histo" role="tabpanel" aria-labelledby="t-histo" hidden>
+<div class="flow">
+
+  <h2 id="hi-before">Before, in two stages</h2>
+  <p>These were different situations and it is worth not collapsing them.</p>
+
+  <h3><span class="n">01</span>f2271db &mdash; one full VEGAS run per mass point</h3>
+  <p>The driver scanned an invariant mass <code>xq</code> in steps, running the entire integration
+  from scratch at each step, and the integrand rejected every event outside a &plusmn;5&nbsp;GeV slice
+  around it. A distribution cost one adaptation and one production pass per point, every event outside
+  the slice was discarded, and each point&rsquo;s error came from a different VEGAS run.</p>
+
+  <div class="thennow">
+    <figure class="code">
+      <figcaption><span class="tag was">was</span><span class="path">f2271db:LO_check_DY/main.f90</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">    xq = xq_initial
+
+    do j = 1, it_max
+        call printframe2(xq)
+
+        call brm48i(40, 0, 0)
+        call vsup(5, npt_LO, its_LO, flo2_LO, ans, sd, chi2)
+
+        ai_lo2(j) = ans
+        err(j)    = sd
+
+        mode = "Leading Order"
+        call printframe3(mode, ans, sd, chi2)
+
+        xq = xq + step_size
+    end do</code></pre>
+    </figure>
+    <figure class="code">
+      <figcaption><span class="tag was">was</span><span class="path">f2271db:LO_check_DY/integrand.f90</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">    xlow  = xq - eps
+    xhigh = xq + eps
+    ...
+    if (scale &gt;= xlow .and. scale &lt;= xhigh) then
+      scale = xq
+      ...
+      xnorm = hbarc2 / (16d0 * pi_mod * xa * xb * s)
+      wgt = xnorm * sig * vwgt
+      wgt_result = wgt / vwgt
+    else
+      wgt_result = 0d0
+    end if
+      flo2_LO = wgt_result</code></pre>
+    </figure>
+  </div>
+
+  <h3><span class="n">02</span>2006b63 &mdash; no distributions at all</h3>
+  <p>After the strip, the entire output of a run was three numbers.</p>
+
+  <figure class="code">
+    <figcaption><span class="tag was">was</span><span class="path">2006b63:LO_check_DY/main.f90 &mdash; the whole report</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">    if (iprint == 1) then
+       call execute_command_line('mkdir -p ../summary/'//trim(run_tag))
+       outfile = '../summary/'//trim(run_tag)//'/'//trim(LO_file)
+       open(unit=20, file=trim(outfile), status='unknown')
+       write(20,'(a)') '# sigma_LO [fb]        error [fb]         chi2'
+       write(20,'(3es24.15)') ans, sd, chi2
+       close(20)
+       print *, " Written: ", trim(outfile)
+    end if</code></pre>
+  </figure>
+
+  <div class="note">
+    <span class="lbl">The negative, stated explicitly</span>
+    <p>There was <strong>no event dump, no ntuple, no LHE file and no post-processing step</strong>
+    &mdash; nothing to re-analyse afterwards. PSGen ships a <code>distribs.f</code>, but it is not in
+    <code>PSGEN_OBJS</code> and has never been compiled into this build.</p>
+  </div>
+
+  <h2 id="hi-hooks">After &mdash; two hooks, at the iteration boundary</h2>
+  <p>The whole change on the integrator side is that the pass sizes became arguments and two calls
+  appeared. The production pass used to be hardcoded as <code>10*npt</code> points and
+  <code>2*its</code> iterations, which made the statistics behind a plot something you had to read
+  the integrator to know.</p>
+
+  <figure class="code">
+    <figcaption><span class="tag now">now</span><span class="path">vsup.f:26&ndash;68</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f77">      subroutine vsup(nd,npt_ad,its_ad,npt_pr,its_pr,fxn,avgi,sd,chisq)
+      implicit double precision (a-h,o-z)
+      logical plot
+      common/bvegas/ndim,ncall,nprn,itmx
+      external fxn
+      ndim=nd
+      nprn = 1
+c
+c  --- adaptation: grid refined, results discarded ---
+      ncall=npt_ad
+      itmx=its_ad
+      plot=.false.
+      write(6,'(/a)') ' [ VEGAS ] adaptation pass -- grid refining'
+      flush(6)
+      call vegas_m(1,fxn,avgi,sd,chisq)
+      do i=1,itmx
+         call vegas_m(3,fxn,avgi,sd,chisq)
+      enddo
+c
+c  --- production: grid frozen, histograms filled ---
+      ncall=npt_pr
+      itmx=its_pr
+      plot=.true.
+      write(6,'(/a)') ' [ VEGAS ] production pass -- grid frozen'
+      flush(6)
+      call vegas_m(2,fxn,avgi,sd,chisq)
+      call histo_begin_production
+      do i=1,itmx
+         call vegas_m(4,fxn,avgi,sd,chisq)
+         call histo_end_iteration
+      enddo
+      return
+      end</code></pre>
+  </figure>
+
+  <p>The hooks have to be here, at the iteration boundary and outside <code>vegas_m</code>, because
+  one iteration is the sample unit for every histogram error bar. They are plain external
+  subroutines rather than module procedures so that fixed-form F77 never has to know how the
+  compiler mangles module names.</p>
+
+  <figure class="code">
+    <figcaption><span class="tag now">now</span><span class="path">analysis_mod.f90:282&ndash;298 &mdash; outside the module, on purpose</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">subroutine histo_begin_production()
+  use analysis_mod, only : analysis_begin_production
+  implicit none
+  call analysis_begin_production()
+end subroutine histo_begin_production
+
+subroutine histo_end_iteration()
+  use analysis_mod, only : analysis_end_iteration
+  implicit none
+  call analysis_end_iteration()
+end subroutine histo_end_iteration</code></pre>
+  </figure>
+
+  <p>Until the first hook fires, the fill is a no-op. That is what lets the integrand call
+  <code>analysis_fill</code> unconditionally and say nothing about which pass it is in &mdash; and it
+  is what guarantees adaptation points, drawn from a density that is still moving, never reach a bin.</p>
+
+  <figure class="code">
+    <figcaption><span class="tag now">now</span><span class="path">analysis_mod.f90:175&ndash;209</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">  subroutine analysis_begin_production()
+  integer :: ih
+  do ih = 1, nhists
+     call histo1d_reset(hists(ih))
+  end do
+  call histo1d_init(htot, 'total', 'sigma', 1, 0d0, 1d0)
+  filling = .true.
+  end subroutine analysis_begin_production
+
+  subroutine analysis_fill(qmom, n, weight)
+  integer,      intent(in) :: n
+  real(real64), intent(in) :: qmom(0:3,n)
+  real(real64), intent(in) :: weight
+
+  integer :: ih
+  real(real64) :: xval
+
+  if (.not. filling) return
+
+  ! Fills the unit bin, so the total picks up every accepted event
+  ! whether or not it lands inside any booked range.
+  call histo1d_fill(htot, 0.5d0, weight)
+
+  do ih = 1, nhists
+     xval = obs_evaluate(hobs(ih), hlegs(1:hnleg(ih),ih), hnleg(ih), qmom, n)
+     call histo1d_fill(hists(ih), xval, weight)
+  end do
+
+  end subroutine analysis_fill</code></pre>
+  </figure>
+
+  <h2 id="hi-stats">The statistics &mdash; why an iteration, not an event</h2>
+  <p>This is the one thing that does not carry over from the KALEU code, and getting it wrong would
+  produce a plausible number with a wrong error bar. KALEU draws independent points, so it can take
+  the per-point spread as the error. VEGAS cannot: with <code>MDS = 1</code> the points inside one
+  iteration are stratified &mdash; deliberately anti-correlated &mdash; and their spread overstates
+  the variance of their sum. What <em>is</em> independent is one iteration from the next, which is
+  already the estimator <code>vsup</code> uses for the total.</p>
+
+  <figure class="code">
+    <figcaption><span class="path">histogram_mod.f90:17&ndash;40 &mdash; the design, in the module header</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">! THE SAMPLE UNIT IS A VEGAS ITERATION, NOT AN EVENT. KALEU draws
+! independent points, so it can take the per-point spread as the error.
+! VEGAS cannot: with MDS = 1 the points inside one iteration are
+! STRATIFIED, deliberately anti-correlated, and the per-point spread
+! overestimates the true variance of their sum. What IS independent is
+! one iteration from the next -- which is exactly the estimator vsup
+! uses for the total. So a bin accumulates into hcur during an
+! iteration, and histo1d_end_iteration folds that one number into
+! hw/hww. n below is therefore the number of PRODUCTION ITERATIONS.
+!
+! With
+!     u_i = the bin's contribution from iteration i, in units where
+!           the integrand is called with vwgt = WGT/ITMX
+!     hw  = sum_i u_i          (already the mean, the 1/ITMX is in vwgt)
+!     hww = sum_i u_i^2
+! the per-iteration estimates are v_i = n*u_i, and
+!     mean(v) = hw
+!     err     = sqrt( (n*hww - hw^2) / (n-1) )
+!
+! RAW ACCUMULATORS. Each row carries hw, hww and n alongside the
+! physical d(sigma)/d(obs), so several independent (seed) runs can be
+! merged exactly: sum the accumulators, recompute the mean once. That is
+! only valid between runs using the SAME points-per-iteration, since the
+! sample unit carries that in its variance -- the header records it.</code></pre>
+  </figure>
+
+  <p>Three arrays per histogram carry that: <code>hcur</code> accumulates during an iteration,
+  <code>hw</code> and <code>hww</code> are folded once at the boundary, <code>nit</code> counts the
+  folds. Because VEGAS calls the integrand with <code>vwgt = WGT/ITMX</code>, the
+  <code>1/ITMX</code> is already inside every weight, so <code>hw</code> comes out as the mean
+  directly rather than as a sum needing division.</p>
+
+  <div class="thennow">
+    <figure class="code">
+      <figcaption><span class="path">histogram_mod.f90:141&ndash;150</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">  subroutine histo1d_end_iteration(h)
+  type(histo1d_type), intent(inout) :: h
+
+  if (h%nbins == 0) return
+  h%hw   = h%hw  + h%hcur
+  h%hww  = h%hww + h%hcur**2
+  h%hcur = 0d0
+  h%nit  = h%nit + 1
+
+  end subroutine histo1d_end_iteration</code></pre>
+    </figure>
+    <figure class="code">
+      <figcaption><span class="path">histogram_mod.f90:159&ndash;173</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">  real(real64) function histo1d_mean(h, ib) result(val)
+  type(histo1d_type), intent(in) :: h
+  integer,            intent(in) :: ib
+  val = h%hw(ib)/h%binwidth
+  end function histo1d_mean
+
+  real(real64) function histo1d_error(h, ib) result(err)
+  type(histo1d_type), intent(in) :: h
+  integer,            intent(in) :: ib
+  real(real64) :: dn
+  err = 0d0
+  if (h%nit &lt; 2) return
+  dn  = real(h%nit, real64)
+  err = sqrt(max(0d0, dn*h%hww(ib) - h%hw(ib)**2)/(dn - 1d0))/h%binwidth
+  end function histo1d_error</code></pre>
+    </figure>
+  </div>
+
+  <p>The mean and the error are functions rather than inlined algebra so that the report writer, the
+  console summary and anything else wanting the numbers agree on the estimator by construction
+  instead of by copied arithmetic. It is also why <code>it_prod &gt;= 2</code> is enforced by the
+  card reader: with one iteration there is no spread to quote.</p>
+
+  <h2 id="hi-total">The total, by the same machinery</h2>
+  <p><code>htot</code> is a one-bin histogram of unit width that every accepted event falls into.
+  That is not a trick to save code &mdash; it is what guarantees the quoted total and the bin
+  contents cannot drift apart through two copies of the same algebra. It also means
+  <code>histo</code> and <code>sum_w</code> in the report are numerically identical, which is a
+  useful thing to know when reading a file.</p>
+
+  <p>The run therefore ends with two estimators of one number. VEGAS quotes a variance-weighted
+  average over iterations, with a chi&sup2;/it saying whether that weighting was legitimate; the
+  histograms quote a plain unweighted mean, because a weighted one cannot be merged bin by bin
+  across runs. They must agree well inside the error, and <code>main.f90</code> prints the pull
+  every run.</p>
+
+  <figure class="code">
+    <figcaption><span class="tag now">now</span><span class="path">LO_check_DY/main.f90:172&ndash;193</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">! Two estimators for the same number. VEGAS quotes a variance-WEIGHTED average
+! over the production iterations; the histograms accumulate a plain unweighted
+! mean, because a weighted one cannot be merged bin by bin across runs. They
+! must agree well inside the error -- a pull of a few sigma here is the
+! cheapest available signal that the run has not converged, and it costs
+! nothing, since the histogram total is filled by the same events.
+    htot = analysis_total()
+    herr = analysis_total_error()
+
+    pull = 0.0_real64
+    if (sd &gt; 0.0_real64 .or. herr &gt; 0.0_real64) &amp;
+       pull = (htot - ans)/sqrt(sd**2 + herr**2)
+
+    write(*,'(a,es16.8,a,es10.3,a)') "  sigma_LO   = ", ans,  "  +-  ", sd,  "  fb  [VEGAS]"
+    write(*,'(a,es16.8,a,es10.3,a)') "  sigma_hist = ", htot, "  +-  ", herr, "  fb  [histograms]"
+    write(*,'(a,f10.4)')             "  chi^2/it   = ", chi2
+    write(*,'(a,f10.4,a,i0,a)')      "  pull       = ", pull,                  &amp;
+                                     "        (", analysis_niter(), " production iterations)"</code></pre>
+  </figure>
+
+  <figure class="code">
+    <figcaption><span class="path">summary/run_00/logs/LO_1002.log &mdash; tail</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="none">  20       1968236.     0.1333E+05   1972758.      2984.     0.9126
+
+ ====================================================
+  sigma_LO   =   1.97275844E+06  +-   2.984E+03  fb  [VEGAS]
+  sigma_hist =   1.97292418E+06  +-   2.848E+03  fb  [histograms]
+  chi^2/it   =     0.9126
+  pull       =     0.0402        (20 production iterations)
+ ====================================================</code></pre>
+  </figure>
+
+  <h2 id="hi-book">Booking from the card</h2>
+  <p>Booking happens before anything runs, so a bad <code>[histograms]</code> row fails in the first
+  second rather than after the integration. Every failure is fatal on purpose: a misspelled
+  observable would otherwise produce a report that silently lacks a distribution somebody asked for.</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>Observable</th><th>Accepted names</th><th>Legs</th></tr></thead>
+    <tbody>
+      <tr><td>invariant mass of the final state</td><td>inv_mass, invmass</td><td>takes none</td></tr>
+      <tr><td>mass of the summed legs</td><td>mass, m</td><td>one or more, summed</td></tr>
+      <tr><td>transverse momentum</td><td>pt, pT</td><td>one or more, summed</td></tr>
+      <tr><td>rapidity</td><td>rapidity, y</td><td>one or more, summed</td></tr>
+      <tr><td>pseudorapidity</td><td>pseudorapidity, eta</td><td>one or more, summed</td></tr>
+      <tr><td>energy</td><td>energy, e</td><td>one or more, summed</td></tr>
+      <tr><td>azimuthal separation</td><td>dphi, delta_phi</td><td>even count, split in half</td></tr>
+      <tr><td>&Delta;R</td><td>dr, delta_r</td><td>even count, split in half</td></tr>
+      <tr><td>transverse mass</td><td>mt, transverse_mass</td><td>even count, split in half</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Legs are numbered over <em>all</em> particles, the two incoming partons being 1 and 2, so for
+  this process leg 3 is the <code>e+</code> and leg 4 the <code>e&minus;</code>. Listed legs are
+  summed and the observable applied to the sum; the comparison observables split the list in half and
+  sum each half. <code>leg = 3</code> is just <code>legs = 3</code> written shorter and both are
+  accepted. The limits are <code>MAXHIST = 32</code> and <code>MAXLEGS = 8</code>.</p>
+
+  <figure class="code">
+    <figcaption><span class="tag now">now</span><span class="path">analysis_mod.f90:96&ndash;131 &mdash; leg-list validation</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">     ! `leg = 3` is just `legs = 3` written shorter; accept both, and
+     ! refuse a row that gives neither when the observable needs legs.
+     call card_hist_intlist(ih, 'legs', legs, nleg)
+     if (nleg == 0) then
+        legs(1) = card_hist_int(ih, 'leg', 0)
+        if (legs(1) &gt; 0) nleg = 1
+     endif
+
+     nreq = obs_nlegs_required(ik)
+     select case (nreq)
+       case (0)
+          if (nleg /= 0) then
+             print '(A)','ERROR histogram "'//trim(nm)//'": observable "'// &amp;
+                         trim(obsname)//'" takes no leg list'
+             stop 1
+          endif
+       case (-1)
+          if (nleg &lt; 1) then
+             print '(A)','ERROR histogram "'//trim(nm)//'": observable "'// &amp;
+                         trim(obsname)//'" needs at least one leg'
+             stop 1
+          endif
+       case (-2)
+          if (nleg &lt; 2 .or. mod(nleg,2) /= 0) then
+             print '(A)','ERROR histogram "'//trim(nm)//'": observable "'// &amp;
+                         trim(obsname)//'" needs an even number of legs (at least two)'
+             stop 1
+          endif
+     end select</code></pre>
+  </figure>
+
+  <h2 id="hi-exact">Which distributions are exact in this build</h2>
+  <p>The integrand sums both beam orderings &mdash; quark from beam 1, quark from beam 2 &mdash;
+  against a single amplitude evaluation. The exchange flips the sign of
+  <code>cos&theta;*</code>, the lepton angle in the dilepton rest frame measured from the quark
+  direction. So the shortcut is exact for any observable <em>even</em> in
+  <code>cos&theta;*</code> and wrong in the odd part, which is the forward&ndash;backward asymmetry.</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>Status</th><th>Observables</th></tr></thead>
+    <tbody>
+      <tr><td style="color:var(--good)">exact</td><td>m(ee) &middot; pt of either lepton &middot; pt(ll) &middot; y(ll) &middot; dphi(ll)</td></tr>
+      <tr><td style="color:var(--ochre)">not exact</td><td>eta or y of a <em>single</em> lepton &middot; dr(ll), which is built from &Delta;&eta;</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>The <code>eta</code> and <code>dr</code> rows ship commented out for that reason, and it is the
+  same reason no angular acceptance cut was added &mdash; adding one means evaluating the two
+  orderings separately first.</p>
+
+  <div class="note check">
+    <span class="lbl">Closure checks that come for free</span>
+    <ul>
+      <li><code>pt(ll)</code> puts all its weight in bin 1, with <code>sum_w</code> equal to the run
+      total to the last digit &mdash; at leading order the dilepton system has no recoil. Anything
+      else means the two-body kinematics or the boost to the lab frame is wrong.</li>
+      <li><code>dphi(ll)</code> lands entirely in the &pi; bin.</li>
+      <li><code>pt(e+)</code> equals <code>pt(e&minus;)</code> bin by bin.</li>
+      <li><code>m(ee)</code> peaks in the 91&nbsp;GeV bin.</li>
+    </ul>
+  </div>
+
+  <h2 id="hi-nvar">One variation, not nvar</h2>
+  <p>The KALEU original carries a <code>(nbins, nvar)</code> grid per scale and PDF variation. Here
+  every accumulator is a plain 1D array and the build produces the central scale only. Widening it
+  means giving <code>hcur</code>, <code>hw</code> and <code>hww</code> a second index and looping the
+  fill; the file format already leaves the column block where a variation axis would go, and both
+  Python tools already read it. Every header stamps <code>nvar = 1</code> and
+  <code>variation_order = central</code> so a reader can tell.</p>
+
+</div>
+<aside class="toc">
+  <p>On this tab</p>
+  <a href="#hi-before">Before, in two stages</a>
+  <a href="#hi-hooks">Two hooks</a>
+  <a href="#hi-stats">The statistics</a>
+  <a href="#hi-total">The total</a>
+  <a href="#hi-book">Booking from the card</a>
+  <a href="#hi-exact">What is exact</a>
+  <a href="#hi-nvar">One variation</a>
+</aside>
+</section>
+
+<!-- ================================================================= -->
+<!-- 04  RUNNING IT                                                     -->
+<!-- ================================================================= -->
+<section class="panel" id="running" role="tabpanel" aria-labelledby="t-running" hidden>
+<div class="flow">
+
+  <h2 id="rn-why">Why the card is keyed</h2>
+  <p>The old format was positional, and said so itself.</p>
+
+  <div class="thennow">
+    <figure class="code">
+      <figcaption><span class="tag was">was</span><span class="path">2006b63:input.input &mdash; header</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="none">! ##### Always begin comment with "! " in the beginning, vertical
+! ##### space dosen't matter.
+! ##### However sequence of each input parameters is fixed
+! ##### Donot modify order the order of parameters</code></pre>
+    </figure>
+    <figure class="code">
+      <figcaption><span class="tag was">was</span><span class="path">2006b63:misc_utils_mod.f90 &mdash; the reader</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">    call next_data_line(iunit, line); read(line,*) ecm
+    call next_data_line(iunit, line); read(line,*) invmass_base
+    call next_data_line(iunit, line); read(line,*) step_size
+    call next_data_line(iunit, line); read(line,*) it_max
+    call next_data_line(iunit, line); read(line,*) run_tag
+    call next_data_line(iunit, line); read(line,*) iprint
+    call next_data_line(iunit, line); read(line,*) pdf_LO
+    ...
+    call next_data_line(iunit, line); read(line,*) mee_min, mee_max
+    call next_data_line(iunit, line); read(line,*) mur_fixed, muf_fixed
+    call next_data_line(iunit, line); read(line,*) gfermi
+
+!... Appended block. New keys go at the END of input.input so the positions of
+!... everything above stay valid for the components that already read this file.</code></pre>
+    </figure>
+  </div>
+
+  <p>Inserting, removing or reordering a line silently shifted every subsequent value into the wrong
+  variable, and the only defence was a convention about appending. The keyed parser turns three
+  classes of mistake into hard errors instead of wrong numbers: an <strong>unknown key</strong>
+  (caught by <code>card_report_unused</code> once every getter has run), a <strong>missing required
+  key</strong> (caught by the <code>card_require_*</code> getters), and a <strong>duplicate
+  key</strong> (caught at parse time, with both line numbers reported).</p>
+
+  <p>Each entry stores its section, its key, its value, the line it came from and a
+  <code>used</code> flag; <code>[histograms]</code> rows carry a name as well, so one section can
+  hold repeated definitions. Lookup folds case on both sides, so a caller asking for
+  <code>mZ</code> finds the stored <code>mz</code> rather than silently falling back to a default.
+  At the end, <code>card_dump</code> echoes every parsed entry into the report, which is what makes
+  a report plus its echoed card a complete description of the run.</p>
+
+  <h2 id="rn-keys">Every key</h2>
+  <dl class="keys">
+    <dt>[run] seed</dt>
+    <dd>Positive integer, required. Overridden by the first command-line argument. One run is one
+    seed; independent statistics come from several seeds merged, not from one long job.</dd>
+
+    <dt>[run] n_adapt, it_adapt</dt>
+    <dd>Adaptation pass. These points are thrown away &mdash; they are not histogrammed and do not
+    enter the quoted cross section, because they are drawn from a density that is still moving.</dd>
+
+    <dt>[run] n_prod, it_prod</dt>
+    <dd>Production pass, grid frozen. <code>it_prod</code> is not cosmetic: it is the number of
+    sample units behind every error bar in the report, so it wants to be at least about 10. Values
+    below 2 are rejected.</dd>
+
+    <dt>[output] dir, file</dt>
+    <dd><code>dir</code> is overridden by the second command-line argument. <code>file</code> names
+    the <em>merged</em> report; a single run is always written seed-tagged.</dd>
+
+    <dt>[beam] ecm</dt>
+    <dd>Hadronic centre-of-mass energy in GeV. Also the fallback upper edge of the mass window.</dd>
+
+    <dt>[pdf] set, member</dt>
+    <dd>LHAPDF set name and member. This build evaluates one member only.</dd>
+
+    <dt>[scales] dynamic, mur_fixed, muf_fixed</dt>
+    <dd><code>dynamic = yes</code> gives <code>muR = muF = m(e+e&minus;)</code> event by event.
+    <strong>muR is inert at this order</strong> &mdash; the tree amplitude carries no power of
+    <code>gs</code>, so nothing in the integrand is allowed to read it. Only muF moves the answer;
+    <code>mur_fixed</code> is kept so a run can still be labelled.</dd>
+
+    <dt>[masses] mZ, wZ, mW, wW, mH, mtop</dt>
+    <dd>Handed to OpenLoops through <code>constants_mod</code>. <code>wZ</code> is physics, not
+    bookkeeping: the Z propagator is resonant in the middle of the generated range and OpenLoops runs
+    in the complex-mass scheme built from exactly these numbers. <code>wZ = 0</code> is rejected.</dd>
+
+    <dt>[ew] gfermi</dt>
+    <dd><code>alpha</code> is derived from this through the Gmu relation in
+    <code>constants_mod::alpha_gfermi</code> and handed to OpenLoops explicitly
+    (<code>ew_scheme = 0</code>) rather than left for OpenLoops to rederive &mdash; the two differ by
+    about 0.1&thinsp;%.</dd>
+
+    <dt>[cuts] mee_min, mee_max</dt>
+    <dd>The only selection this build applies. <code>mee_min</code> is not optional: the leptons are
+    massless and the amplitude contains <code>gamma* &rarr; e+ e&minus;</code>, so the integrand
+    diverges as <code>1/m(ee)&sup2;</code> and a zero here gives a meaningless cross section rather
+    than a large one. <code>mee_max = 0</code> means no upper edge and resolves to
+    <code>ecm</code>.</dd>
+
+    <dt>[histograms] &lt;name&gt; obs / leg / legs / nbins / xmin / xmax</dt>
+    <dd>One row per distribution. Events outside <code>[xmin,xmax]</code> are simply not binned; they
+    still count towards the total cross section, which makes a histogram range a plotting choice
+    rather than a cut.</dd>
+  </dl>
+
+  <figure class="code">
+    <figcaption><span class="path">input.input:182&ndash;197 &mdash; the shipped distributions</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="none">mee1    obs = mass    legs = 3,4   nbins = 140   xmin = 60.0   xmax = 200.0
+mee2    obs = mass    legs = 3,4   nbins = 70    xmin = 60.0   xmax = 200.0
+mee4    obs = mass    legs = 3,4   nbins = 35    xmin = 60.0   xmax = 200.0
+mee7    obs = mass    legs = 3,4   nbins = 20    xmin = 60.0   xmax = 200.0
+mee10   obs = mass    legs = 3,4   nbins = 14    xmin = 60.0   xmax = 200.0
+mee     obs = mass    legs = 3,4   nbins = 21    xmin = 79.5   xmax = 100.5
+
+ptep    obs = pt      leg  = 3     nbins = 40    xmin = 0.0    xmax = 200.0
+ptem    obs = pt      leg  = 4     nbins = 40    xmin = 0.0    xmax = 200.0
+ptll    obs = pt      legs = 3,4   nbins = 40    xmin = 0.0    xmax = 100.0
+yll     obs = y       legs = 3,4   nbins = 30    xmin = -4.0   xmax = 4.0
+dphill  obs = dphi    legs = 3,4   nbins = 32    xmin = 0.0    xmax = 3.2
+
+#etaep  obs = eta     leg  = 3     nbins = 25    xmin = -2.5   xmax = 2.5
+#etaem  obs = eta     leg  = 4     nbins = 25    xmin = -2.5   xmax = 2.5
+#drll   obs = dr      legs = 3,4   nbins = 30    xmin = 0.0    xmax = 6.0</code></pre>
+  </figure>
+
+  <p>The <code>mee1 / mee2 / mee4 / mee7 / mee10</code> family is the same distribution at 1, 2, 4, 7
+  and 10&nbsp;GeV bin widths over the same range &mdash; rebinning decided at run time rather than
+  afterwards. <code>ptll</code> is the free check described above.</p>
+
+  <h2 id="rn-cli">The command line, and why it is only two arguments</h2>
+  <figure class="code">
+    <figcaption><span class="tag now">now</span><span class="path">LO_check_DY/main.f90:73&ndash;106</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">! Two overrides, and only two: the seed and where the report goes. Everything
+! that changes the PHYSICS stays in the card, so a report plus its echoed card
+! is still a complete description of the run.
+    if (command_argument_count() &gt;= 1) then
+       call get_command_argument(1, arg)
+       read(arg,*,iostat=ios) seed
+       if (ios /= 0) then
+          print '(A)','ERROR: seed argument is not an integer: '//trim(arg)
+          stop 1
+       endif
+       ! Same rule as the card's. BRM48I takes IJKL &gt;= 0 and would silently
+       ! accept 0, giving every job that passed it the identical stream --
+       ! which is exactly what a seed campaign exists to avoid.
+       if (seed &lt;= 0) then
+          print '(A)','ERROR: seed must be a positive integer'
+          stop 1
+       endif
+    endif
+
+    if (command_argument_count() &gt;= 2) then
+       call get_command_argument(2, arg)
+       ! Silent truncation here would send a batch job's report somewhere
+       ! other than where the launcher will look for it, and the launcher
+       ! judges success by whether that file appeared.
+       if (len_trim(arg) &gt; len(out_dir)) then
+          print '(A,I0,A)','ERROR: outdir argument is longer than ', len(out_dir), &amp;
+                           ' characters: '//trim(arg)
+          stop 1
+       endif
+       out_dir = arg(1:len(out_dir))   ! length checked just above
+    endif</code></pre>
+  </figure>
+
+  <h2 id="rn-naming">Seed tagging is the merge guard</h2>
+  <p>Every report is written as <code>LO_&lt;seed&gt;.dat</code>. That is not decoration:
+  <code>merge_runs.py</code> combines a campaign by globbing <code>LO_*.dat</code>, and the merged
+  result lands on the untagged <code>LO.dat</code>, which the glob cannot match. A merged report
+  therefore can never be fed back into its own merge and have its points counted twice. The naming
+  <em>is</em> the guard.</p>
+
+  <figure class="code">
+    <figcaption><span class="tag now">now</span><span class="path">LO_check_DY/main.f90:222&ndash;238</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="f90">  function seed_tagged(fname, iseed) result(tagged)
+  character(len=*), intent(in) :: fname
+  integer,          intent(in) :: iseed
+  character(len=len(fname)+16) :: tagged
+  character(len=16) :: tag
+  integer :: idot
+
+  write(tag,'(A,I0)') '_', iseed
+
+  idot = index(trim(fname), '.', back=.true.)
+  if (idot &gt; 0) then
+     tagged = fname(1:idot-1)//trim(tag)//trim(fname(idot:))
+  else
+     tagged = trim(fname)//trim(tag)
+  endif
+
+  end function seed_tagged</code></pre>
+  </figure>
+
+  <h2 id="rn-seeds">tools/run_seeds.sh &mdash; and the seed study behind it</h2>
+  <p><code>tools/run_seeds.sh &lt;nseeds&gt; [njobs]</code> reads the card rather than duplicating it,
+  builds an explicit seed list so nothing globs, fans the jobs out with GNU <code>parallel</code> or
+  <code>xargs -P</code>, judges each job by whether its file appeared, and merges whatever succeeded.
+  A failed seed does not abort the campaign, but the exit status is non-zero so a wrapper can notice.</p>
+
+  <p>Seeds are <code>1001, 1002, 1003, &hellip;</code> &mdash; the run index, as in the KALEU tree.
+  That convention was checked rather than inherited, because this build&rsquo;s generator is BRM48
+  (RANMAR), not the RANLUX the KALEU tree seeds. BRM48I splits its seed into four numbers and fills
+  its 97-word table from a recurrence in three of them, so every seed below 30082 lands in the same
+  cell and consecutive seeds share most of that recurrence. On paper that is a weak corner of
+  RANMAR&rsquo;s seeding.</p>
+
+  <div class="tw">
+  <table>
+    <thead><tr><th>Pair</th><th>Relationship</th><th class="num">max |r|</th></tr></thead>
+    <tbody>
+      <tr><td>1001 vs 1002</td><td>consecutive, shared I, J, K</td><td class="num">2.26e-3</td></tr>
+      <tr><td>1001 vs 1003</td><td>consecutive</td><td class="num">2.30e-3</td></tr>
+      <tr><td>1001 vs 31083</td><td>one IJ cell apart</td><td class="num">2.17e-3</td></tr>
+      <tr><td>40 vs 1002</td><td>unrelated</td><td class="num">2.21e-3</td></tr>
+      <tr><td colspan="2" style="color:var(--ink-3)">noise floor, 1/&radic;N</td><td class="num">7.1e-4</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Measured over 10&#8311; draws at lag 0 and 2&times;10&#8310; draws scanning lags 0 to 400, every
+  pair sits at the noise floor &mdash; and 2.2e-3 is just what the largest of 401 noise samples looks
+  like. Consecutive seeds are indistinguishable from unrelated ones; the 48-bit table fill washes the
+  shared recurrence out. So the readable convention stands. <code>SEED_STRIDE = 30082</code> remains
+  an escape hatch if a future test ever finds something this one could not see.</p>
+
+  <h2 id="rn-merge">tools/merge_runs.py</h2>
+  <p>Merging pools the per-iteration estimates over every iteration of every run. Each report carries,
+  per bin, <code>hw = &sum;u_i</code> and <code>hww = &sum;u_i&sup2;</code> over
+  <code>n = niter</code>; since <code>u_i</code> already carries the <code>1/ITMX</code>, the
+  independent estimates are <code>v_i = n&middot;u_i</code>.</p>
+
+  <figure class="code">
+    <figcaption><span class="path">tools/merge_runs.py &mdash; the pooling</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="py">    N    = sum_r n_r
+    S1   = sum_r n_r   * hw_r        =  sum over every v_i
+    S2   = sum_r n_r^2 * hww_r       =  sum over every v_i^2
+    mean = S1 / N
+    err  = sqrt( (S2 - S1^2/N) / (N*(N-1)) )        [per bin: / binwidth]</code></pre>
+  </figure>
+
+  <p>Applied to a single run this reproduces that run&rsquo;s own numbers exactly, which is the
+  identity test worth running after any change. Unlike averaging per-run means it stays correct when
+  runs contribute unequal numbers of iterations. A companion <code>repack()</code> writes back the
+  <code>hw</code>/<code>hww</code> a reader recovers the same mean and error from, so a merged report
+  obeys the same file contract as a single run.</p>
+
+  <div class="note">
+    <span class="lbl">Two different combinations in one file</span>
+    <p>The histogram columns pool accumulators as above. The VEGAS column cannot be pooled that way
+    &mdash; VEGAS quotes a variance-weighted average over its own iterations, and each seed adapted
+    its own grid, so the seeds are independent measurements of the same number with individually
+    meaningful errors. That column uses an inverse-variance combination instead. Which is why
+    <code>chi2_per_it</code> in a merged file is the chi&sup2;/dof <em>of the seeds</em>, not of one
+    run&rsquo;s iterations &mdash; and the merger writes that caveat into the file itself.</p>
+  </div>
+
+  <p>What the merge refuses: runs with different <code>npoints_per_iter</code> are not mergeable,
+  however tempting, because a <code>v_i</code>&rsquo;s variance depends on how many points went into
+  its iteration. Same for a different ecm, PDF, cut, scale, or physics card &mdash; those are
+  different quantities. The check goes beyond the header: <code>card_signature()</code> compares the
+  physics half of the echoed card, dropping <code>[run]</code> and <code>[output]</code>, because two
+  runs at different <code>mZ</code> have identical headers. A crashed or truncated seed, by contrast,
+  is merely skipped, because one dead job must not cost the campaign.</p>
+
+  <div class="note trap">
+    <span class="lbl">What merging cannot fix</span>
+    <p>Summing accumulators is exact but blind. A seed whose VEGAS grid adapted badly still
+    contributes its full weight, drags the mean and <em>shrinks</em> the pooled error &mdash; a
+    confidently quoted wrong number. The per-seed pull table and the chi&sup2;/dof printed at the end
+    are what expose that, and they are the reason to run a campaign rather than one long job. Above
+    chi&sup2;/dof = 3 the merger says so explicitly.</p>
+  </div>
+
+  <h2 id="rn-extract">tools/extract_data.py</h2>
+  <figure class="code">
+    <figcaption><span class="path">usage</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="sh">tools/extract_data.py ../summary/run_00/LO.dat inv
+tools/extract_data.py ../summary/run_00/LO.dat ptll
+tools/extract_data.py ../summary/run_00/LO.dat tot     # 'total' also works
+tools/extract_data.py ../summary/run_00/LO.dat list</code></pre>
+  </figure>
+  <p>The two arguments may be given either way round, since the KALEU tree&rsquo;s version takes
+  <code>&lt;what&gt;</code> first and that habit should not cost a rerun. A distribution can be named
+  exactly, by case-insensitive prefix, or by alias against the recorded <code>xlabel</code>. Columns
+  are read by name from the block&rsquo;s <code># columns:</code> line, not by position. Output is
+  bin centre, <code>d&sigma;/d(observable)</code> in fb per unit of that observable, and its error
+  &mdash; multiply by the bin width for the cross section in a bin.</p>
+  <p>The <code>--scales</code> and <code>--with-pdf</code> flags exist already and currently print a
+  note and give the central column anyway. They are written against the extension contract
+  (<code>#&nbsp;nvar&nbsp;=&nbsp;N</code> counting the variations,
+  <code>#&nbsp;nscale&nbsp;=&nbsp;M</code> saying how many of the leading ones are the scale grid) so
+  that the reader and the Fortran side stay in step when the 7-point variation lands.</p>
+
+  <h2 id="rn-report">The report format</h2>
+  <p>Four block kinds, all line-oriented, all with <code>#</code> comments carrying the metadata.
+  Everything a merge step needs to check that two files describe the same calculation lives in the
+  first block; the echoed card carries the rest.</p>
+
+  <figure class="code">
+    <figcaption><span class="path">summary/run_00/LO.dat &mdash; structure</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="none"># ==== RUN ====
+# mode = LO
+# generator = PSGen + VEGAS (vsup)
+# seed = merged(1001,1002,...,1012)
+# nruns = 12
+# npoints_per_iter = 1000000
+# niter = 240
+# npoints_total = 240000000
+# ecm = 0.1360000000000000E+05
+# pdf = PDF4LHC21_40
+# amplitude = OpenLoops
+# cuts = mee in [50.000,13600.000]
+# scales = dynamic: muR = muF = m(e+e-)
+# nvar = 1
+# variation_order = central
+# ==== END RUN ====
+
+# ==== INPUT CARD ====
+# [run] seed = 1002
+# [beam] ecm = 13600.0
+# [histograms] mee1 obs = mass
+...
+# ==== END INPUT CARD ====
+
+# ==== TOTAL LO ====
+# niter = 240
+# nruns = 12
+# columns: mur[GeV] muf[GeV] vegas[fb] vegas_err[fb] chi2_per_it histo[fb] histo_err[fb] sum_w sum_w2
+# chi2_per_it is the chi2/dof of the 12 SEEDS about the
+# weighted mean here, not of one run's iterations.
+   91.1876   91.1876  1.9741065180087688E+06  8.7479368650691833E+02  ...
+# ==== END TOTAL LO ====
+
+# ==== HISTOGRAM LO mee1 ====
+# niter = 240
+# nruns = 12
+# nbins = 140
+# npoints_per_iter = 1000000
+# xlabel = mass
+# columns: bin_low bin_high bin_center dsigma_dx error sum_w sum_w2
+# sum_w, sum_w2 are the raw per-iteration accumulators (NOT divided by the bin width)
+  6.0000000000000000E+01  6.1000000000000000E+01  6.0500000000000000E+01  ...
+# ==== END HISTOGRAM LO mee1 ====</code></pre>
+  </figure>
+
+  <p>Points per iteration and the iteration count are recorded separately rather than only as their
+  product, because the iteration is the sample unit for every error in the file. Cuts and scales
+  travel with the data rather than only in the echoed card, because runs made under different
+  selections or scales describe different quantities and must never be merged. And in every
+  histogram block the physical values come first with the raw accumulators trailing, so a plotting
+  script keeps the column positions it expects.</p>
+
+  <h2 id="rn-layout">Where things land</h2>
+  <figure class="code">
+    <figcaption><span class="path">directory layout</span><button class="copy" type="button">Copy</button></figcaption>
+<pre><code data-lang="none">summary/run_00/
+    LO_1001.dat  ...  LO_1012.dat     one per seed
+    LO.dat                            merged; the glob cannot match it
+    logs/
+        LO_1001.log  ...              stdout of each job, iteration tables included</code></pre>
+  </figure>
+  <p><code>summary/</code> is gitignored. <code>runLO</code> reads its card as
+  <code>../input.input</code>, so the binary only runs with <code>LO_check_DY</code> as the working
+  directory, and the card&rsquo;s <code>[output] dir</code> is relative to that same place.</p>
+
+</div>
+<aside class="toc">
+  <p>On this tab</p>
+  <a href="#rn-why">Why keyed</a>
+  <a href="#rn-keys">Every key</a>
+  <a href="#rn-cli">The command line</a>
+  <a href="#rn-naming">Seed tagging</a>
+  <a href="#rn-seeds">run_seeds.sh</a>
+  <a href="#rn-merge">merge_runs.py</a>
+  <a href="#rn-extract">extract_data.py</a>
+  <a href="#rn-report">Report format</a>
+  <a href="#rn-layout">Layout</a>
+</aside>
+</section>
+
+</main>
+
+<footer class="foot">
+  Quoted from the working tree at commit ba6cb4f plus uncommitted changes to main.f90, vsup.f and
+  input.input. Line references were current when this page was written; re-check them after a rebase.
+</footer>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------------- syntax highlighting ----------------
+     Runs over the raw text of each block and rebuilds the HTML in one pass,
+     escaping every non-token chunk itself. The raw text is stashed first so
+     that Copy always hands back the original, spans and all removed. */
+
+  var RAW = new WeakMap();
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  var KW_F = 'subroutine|function|end|endif|enddo|if|then|else|elseif|do|while|call|return|use|only|' +
+             'implicit|none|integer|real|logical|character|type|parameter|intent|allocatable|allocate|' +
+             'deallocate|save|module|contains|program|select|case|default|write|print|open|close|read|' +
+             'stop|common|external|dimension|data|public|private|result|trim|sqrt|abs|max|min|exp|' +
+             'double|precision|flush|cycle';
+
+  var KW_PY = 'def|return|if|elif|else|for|while|in|not|and|or|import|from|as|class|try|except|raise|' +
+              'with|lambda|None|True|False|sum|sorted|len|print|sys|math';
+
+  var KW_SH = 'if|then|fi|else|elif|for|do|done|while|case|esac|function|local|return|export|set|echo|' +
+              'die|read';
+
+  var LANGS = {
+    f90: [
+      { c: 'com', r: "![^\\n]*" },
+      { c: 'str', r: "'(?:[^'\\n])*'" },
+      { c: 'num', r: "\\b\\d+(?:\\.\\d*)?(?:_real64|_dp|[dDeE][-+]?\\d+)?\\b" },
+      { c: 'kw',  r: "\\b(?:" + KW_F + ")\\b" }
+    ],
+    f77: [
+      { c: 'com', r: "^[cC*][^\\n]*" },
+      { c: 'com', r: "![^\\n]*" },
+      { c: 'str', r: "'(?:[^'\\n])*'" },
+      { c: 'num', r: "\\b\\d+(?:\\.\\d*)?(?:[dDeE][-+]?\\d+)?\\b" },
+      { c: 'kw',  r: "\\b(?:" + KW_F + ")\\b" }
+    ],
+    py: [
+      { c: 'com', r: "#[^\\n]*" },
+      { c: 'str', r: "\"(?:[^\"\\n])*\"|'(?:[^'\\n])*'" },
+      { c: 'num', r: "\\b\\d+(?:\\.\\d*)?\\b" },
+      { c: 'kw',  r: "\\b(?:" + KW_PY + ")\\b" }
+    ],
+    sh: [
+      { c: 'com', r: "#[^\\n]*" },
+      { c: 'str', r: "\"(?:[^\"\\n])*\"|'(?:[^'\\n])*'" },
+      { c: 'num', r: "\\b\\d+\\b" },
+      { c: 'kw',  r: "\\b(?:" + KW_SH + ")\\b" }
+    ]
+  };
+
+  function highlight(raw, specs) {
+    var re = new RegExp(specs.map(function (s) { return '(' + s.r + ')'; }).join('|'), 'gmi');
+    var out = '', last = 0, m;
+    while ((m = re.exec(raw)) !== null) {
+      if (m[0] === '') { re.lastIndex++; continue; }
+      out += esc(raw.slice(last, m.index));
+      var which = -1;
+      for (var i = 1; i < m.length; i++) { if (m[i] !== undefined) { which = i - 1; break; } }
+      out += '<span class="t-' + specs[which].c + '">' + esc(m[0]) + '</span>';
+      last = m.index + m[0].length;
+    }
+    return out + esc(raw.slice(last));
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('figure.code code'), function (el) {
+    var raw = el.textContent;
+    RAW.set(el, raw);
+    var specs = LANGS[el.getAttribute('data-lang')];
+    if (specs) { el.innerHTML = highlight(raw, specs); }
+  });
+
+  /* ---------------- copy buttons ---------------- */
+
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:absolute;left:-9999px;top:0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) { /* nothing else to try */ }
+    document.body.removeChild(ta);
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('figure.code .copy'), function (btn) {
+    btn.addEventListener('click', function () {
+      var code = btn.closest('figure.code').querySelector('code');
+      var text = RAW.get(code) !== undefined ? RAW.get(code) : code.textContent;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(function () { fallbackCopy(text); });
+      } else {
+        fallbackCopy(text);
+      }
+      btn.textContent = 'Copied';
+      btn.setAttribute('data-done', '1');
+      window.setTimeout(function () {
+        btn.textContent = 'Copy';
+        btn.removeAttribute('data-done');
+      }, 1400);
+    });
+  });
+
+  /* ---------------- tabs ---------------- */
+
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tabbar button'));
+  var panels = tabs.map(function (t) { return document.getElementById(t.getAttribute('aria-controls')); });
+
+  function show(name, push) {
+    var idx = panels.findIndex(function (p) { return p.id === name; });
+    if (idx < 0) { idx = 0; }
+    tabs.forEach(function (t, i) { t.setAttribute('aria-selected', i === idx ? 'true' : 'false'); });
+    panels.forEach(function (p, i) { p.hidden = i !== idx; });
+    if (push) {
+      history.replaceState(null, '', '#' + panels[idx].id);
+    }
+  }
+
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () { show(t.getAttribute('aria-controls'), true); });
+  });
+
+  tabs.forEach(function (t, i) {
+    t.addEventListener('keydown', function (e) {
+      var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+      if (!d) { return; }
+      e.preventDefault();
+      var n = (i + d + tabs.length) % tabs.length;
+      tabs[n].focus();
+      show(tabs[n].getAttribute('aria-controls'), true);
+    });
+  });
+
+  /* A hash may name a tab or any heading inside one; either way, open the
+     tab that owns it, then let the browser scroll. */
+  function openFromHash() {
+    var h = (location.hash || '').replace('#', '');
+    if (!h) { show('overview', false); return; }
+    var target = document.getElementById(h);
+    if (!target) { show('overview', false); return; }
+    var panel = target.closest('.panel') || target;
+    show(panel.id, false);
+    if (panel !== target) {
+      window.requestAnimationFrame(function () { target.scrollIntoView({ block: 'start' }); });
+    }
+  }
+
+  window.addEventListener('hashchange', openFromHash);
+  openFromHash();
+}());
+</script>
