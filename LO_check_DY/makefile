@@ -88,7 +88,11 @@ PSGEN_OBJS = $(OBJDIR)/inprms_ps.o   \
 OBJECTS = $(PSGEN_OBJS)              \
           $(OBJDIR)/constants_mod.o  \
           $(OBJDIR)/global_mod.o     \
+          $(OBJDIR)/input_card_mod.o \
           $(OBJDIR)/misc_utils_mod.o \
+          $(OBJDIR)/observables_mod.o\
+          $(OBJDIR)/histogram_mod.o  \
+          $(OBJDIR)/analysis_mod.o   \
           $(OBJDIR)/printframe.o     \
           $(OBJDIR)/phasespace.o     \
           $(OBJDIR)/mat.amp.o        \

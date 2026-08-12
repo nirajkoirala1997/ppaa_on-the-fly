@@ -7,7 +7,7 @@ module constants_mod
 
   ! Public constants
   public :: PI, CA, CF, NF, TR, hbarc2, EulerGamma, mass, decayW, eps
-  public :: init_mass
+  public :: init_mass, set_masses_from_card
   public :: GF, alpha_gfermi
   public :: delta_cut 
   public :: iselect_integrand,iselect_modified,iselect_integral 
@@ -115,5 +115,35 @@ module constants_mod
          decayW(23) = 2.4955d0         ! Z-boson
          decayW(24) = 2.0850d0         ! W-boson
       end subroutine init_mass
+
+!==========================================================
+! Override the electroweak masses and widths with the run card's
+! [masses] section. Called after init_mass, before ol_LO_init, so that
+! the numbers OpenLoops is registered with and the numbers
+! alpha_gfermi() derives alpha from are the same ones -- and are both
+! the ones recorded in the report.
+!
+! Only the particles the card names are touched; everything else keeps
+! the built-in value set above.
+!==========================================================
+     subroutine set_masses_from_card(mZ, wZ, mW, wW, mH, mtop)
+     implicit none
+     real(real64), intent(in) :: mZ, wZ, mW, wW, mH, mtop
+
+       mass(23)   = mZ
+       decayW(23) = wZ
+
+       mass(24)   = mW
+       mass(-24)  = mW
+       decayW(24) = wW
+
+       mass(25)   = mH
+
+       mass(6)    = mtop
+       mass(-6)   = mtop
+
+     end subroutine set_masses_from_card
+!==========================================================
+
 end module constants_mod
 

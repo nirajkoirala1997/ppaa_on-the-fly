@@ -6,6 +6,9 @@ modules/
 # built binaries
 LO_check_DY/runLO
 
+# run output: the [output] section of input.input writes reports here
+summary/
+
 # PSGen files not reachable at the current multiplicity, moved aside by the
 # LO clean-out. Regenerate from PSGen_1.1/ when a second process is added.
 LO_check_DY/.psgen_unused/

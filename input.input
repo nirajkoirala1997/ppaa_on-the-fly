@@ -1,76 +1,168 @@
-! ###############################################################################################
-! ##### Always begin comment with "! " in the beginning, vertical space dosen't matter.  ########      
-! ##### However sequence of each input parameters is fixed                               ########
-! ##### Donot modify order the order of parameters                                       ########
-! ###############################################################################################
+####################################################################
+#  p p -> e+ e-   run card   (Drell-Yan, leading order)
+#
+#  Phase space: PSGen (Kolodziej), mapping only.
+#  Integrator:  VEGAS (vsup.f), which keeps the loop and adapts every
+#               dimension, phase-space or not.
+#  Amplitudes:  OpenLoops.
+#
+#  This file fully determines a run: given the same card, the same code
+#  and the same PDF set, the numbers reproduce exactly.
+#
+#  Format:  [section] headers, then  key = value  lines.
+#  Order does not matter.  Comments start with '!' or '#'.
+#  A misspelled or unknown key is a hard error, never a silent default.
+####################################################################
 
-! ===========[ MACHINE PARAMETERS ]==================!
+[run]
+# RNG seed for BRM48, must be > 0.
+seed      = 40
 
-13600                                 ! center of mass energy
-170				      ! invmass base value
-10				      ! step size added on top of base
-1				      ! max # of iteration on invmass
+# VEGAS runs two passes.
+#
+# ADAPTATION (n_adapt x it_adapt): the grid is refined after every
+# iteration. These points are thrown away -- they are NOT histogrammed
+# and do not enter the quoted cross section, because they are drawn from
+# a density that is still moving.
+n_adapt   = 300000
+it_adapt  = 10
 
-! ===========[ OUTPUT OF A RUN SUMMARY ]==================!
+# PRODUCTION (n_prod x it_prod): grid frozen. This pass produces the
+# quoted number and every histogram.
+#
+# it_prod IS NOT COSMETIC. One production iteration is the sample unit
+# behind every error bar in the report: VEGAS stratifies the points
+# INSIDE an iteration, so their spread understates nothing and
+# overstates the variance, while iteration-to-iteration is genuinely
+# independent. Errors are therefore the spread across these it_prod
+# numbers, and it wants to be >~10 for that spread to mean anything.
+n_prod    = 3000000
+it_prod   = 20
 
-run_00				      !directory name to save output
-1				      !print data to summary( ON=1/OFF=0 )
+[output]
+# Report destination, relative to the runLO working directory. The
+# directory is created if it does not exist.
+dir       = ../summary/run_00
+file      = LO.dat
 
-! ===========[ LHAPDF NAME ]==================!
+[beam]
+# hadronic centre-of-mass energy in GeV
+ecm       = 13600.0
 
-PDF4LHC21_40			! LO pdf  (member 0 = LHAPDF id 93100)
-MMHT2014nlo68cl			! NLO pdf
+[pdf]
+set       = PDF4LHC21_40
+# The central member. This build evaluates one member only.
+member    = 0
 
-! ===========[ VEGAS INPUT ]==================!
+[scales]
+# dynamic = yes  ->  muR = muF = m(e+ e-), event by event
+# dynamic = no   ->  the fixed values below are used instead
+#
+# muR IS INERT AT THIS ORDER -- the tree amplitude carries no power of
+# gs, so nothing in the integrand is allowed to read it. Only muF moves
+# the answer. mur_fixed is kept so a run can still be labelled and
+# compared against a code that does vary it.
+dynamic   = no
+mur_fixed = 91.1876
+muf_fixed = 91.1876
 
-5E+5                            ! VEGAS points        [ real-dipole ]
-10                              ! VEGAS iterations    [ real-dipole ]
+[masses]
+# Masses and widths in GeV, handed to OpenLoops through constants_mod.
+#
+# wZ IS PHYSICS HERE, not bookkeeping. The Z propagator is resonant at
+# shat = mZ^2, in the middle of the range this run generates, and
+# OpenLoops runs in the complex-mass scheme built from exactly these
+# numbers. wZ = 0 is rejected.
+#
+# NOTE mZ = 91.1876 here, where the KALEU card uses 91.1880. That is
+# deliberate: it is the value the current result was validated at.
+mZ        = 91.1876
+wZ        = 2.4955
+mW        = 80.3692
+wW        = 2.0850
+mH        = 125.20
+mtop      = 172.57
 
-1E+5                            ! VEGAS points        [ virtual + eikonal ]
-10                              ! VEGAS iterations    [ virtual + eikonal ]
+[ew]
+# alpha is derived from this through the Gmu relation, in
+# constants_mod::alpha_gfermi, and handed to OpenLoops explicitly
+# (ew_scheme = 0) rather than left for OpenLoops to rederive -- see the
+# comment there, the two differ by ~0.1%.
+gfermi    = 1.16638e-5
 
-1E+7    5E+6                    ! VEGAS points        [ PK_Regular & PK_Delta terms ]
-10      10                      ! VEGAS iterations    [ PK_Regular & PK_Delta terms ]
+[cuts]
+# The only selection this build applies.
+#
+# mee_min IS NOT OPTIONAL. The leptons are massless and the amplitude
+# contains gamma* -> e+ e-, so the integrand diverges as 1/m(e+e-)^2.
+# A zero here does not give a large cross section, it gives a
+# meaningless one, and the code refuses it.
+#
+# mee_max = 0 means no upper edge (resolves to ecm).
+#
+# NO ACCEPTANCE CUTS. There is deliberately no pt_lep_min or
+# eta_lep_max, unlike the KALEU card: integrand.f90 sums the two beam
+# orderings against ONE amplitude evaluation, which is exact only
+# without an angular cut. Adding one means evaluating both orderings
+# first. See the note under [histograms].
+mee_min   = 50.0
+mee_max   = 0.0
 
-3E+5                            ! VEGAS points        [ LO ]
-10                              ! VEGAS iterations    [ LO ]
+[histograms]
+# One row per distribution:
+#   <name>  obs = <observable>  [leg = <i> | legs = <i,j,...>]
+#           nbins = <n>  xmin = <lo>  xmax = <hi>
+#
+# observables:
+#   inv_mass                       whole final state, takes no legs
+#   mass, pt, rapidity,            take a leg list; the listed legs are
+#   pseudorapidity, energy         SUMMED and the observable applied to
+#                                  the sum
+#   dphi, dr, mt                   compare two objects: the leg list is
+#                                  split in half, each half summed
+#
+# Legs are counted over all particles, the two incoming partons being 1
+# and 2, so for this process:
+#   leg 3 = e+   leg 4 = e-
+#
+# Events outside [xmin,xmax] are simply not binned; they still count
+# towards the total cross section. The range is a plotting choice, not
+# a cut.
+#
+# ptll is the free check: at leading order the e+e- system has no
+# recoil, so every event must land in the first bin. Anything else
+# means the two-body kinematics or the boost to the lab frame is wrong.
+#
+# ---------------------------------------------------------------------
+# WHICH DISTRIBUTIONS ARE EXACT IN THIS BUILD
+#
+# integrand.f90 sums both beam orderings -- quark from beam 1, quark
+# from beam 2 -- against a SINGLE amplitude evaluation. The exchange
+# flips the sign of cos(theta*), the lepton angle in the dilepton rest
+# frame measured from the quark direction, so the shortcut is exact for
+# any observable EVEN in cos(theta*) and wrong in the odd part (which is
+# the forward-backward asymmetry) for the rest:
+#
+#   exact    m(ee), pt of either lepton, pt(ll), y(ll), dphi(ll)
+#   NOT      eta or y of a SINGLE lepton, and dr(ll) (it is built from
+#            delta-eta)
+#
+# The eta/dr rows below are left commented for that reason. Uncomment
+# them only after integrand.f90 evaluates the two orderings separately.
+# ---------------------------------------------------------------------
+mee1    obs = mass    legs = 3,4   nbins = 140   xmin = 60.0   xmax = 200.0
+mee2    obs = mass    legs = 3,4   nbins = 70    xmin = 60.0   xmax = 200.0
+mee4    obs = mass    legs = 3,4   nbins = 35    xmin = 60.0   xmax = 200.0
+mee7    obs = mass    legs = 3,4   nbins = 20    xmin = 60.0   xmax = 200.0
+mee10   obs = mass    legs = 3,4   nbins = 14    xmin = 60.0   xmax = 200.0
+mee     obs = mass    legs = 3,4   nbins = 21    xmin = 79.5   xmax = 100.5
 
-1E+7    5E+6                    ! VEGAS points        [ PK_Plus: Born+1 & Born kinematics ]
-10      10                      ! VEGAS iterations    [ PK_Plus: Born+1 & Born kinematics ]
+ptep    obs = pt      leg  = 3     nbins = 40    xmin = 0.0    xmax = 200.0
+ptem    obs = pt      leg  = 4     nbins = 40    xmin = 0.0    xmax = 200.0
+ptll    obs = pt      legs = 3,4   nbins = 40    xmin = 0.0    xmax = 100.0
+yll     obs = y       legs = 3,4   nbins = 30    xmin = -4.0   xmax = 4.0
+dphill  obs = dphi    legs = 3,4   nbins = 32    xmin = 0.0    xmax = 3.2
 
-! ===========[ FILE NAMES ]==================!
-
-LO.dat 					| Leading Order contribution
-real.dat 				| Real emission (dipole subtraction) contribution
-virtual.dat 				| Virtual correction contribution
-PK.dat 					| Combined PK result using Plus Distribution regulat and delta
-PK_Plus.dat 				| Plus distribution contribution only
-PK_Regular.dat 				| Regular (non-singular) term contribution
-PK_Delta.dat 				| Delta-function (coefficient) contribution
-
-! ============== below filenames are used to read summary data files ===============
-
-LO_all.dat 				| Combined summary of LO results
-LO_ref.dat 				| Reference LO result (e.g. from a benchmark or older run)
-real_all.dat 				| Combined summary of real emission results
-real_ref.dat 				| Reference real emission result
-virtual_all.dat 			| Combined summary of virtual correction results
-virtual_ref.dat 			| Reference virtual correction result
-PK_all.dat 				| Combined PK result summary
-PK_ref.dat 				| Reference PK result
-PK_Plus_all.dat 			| Summary of Plus distribution contributions
-PK_Regular_all.dat 			| Summary of Regular (non-singular) contributions
-PK_Delta_all.dat 			| Summary of Delta-function contributions
-NLO_ref.dat 				| Total NLO reference result (often: real + virtual + LO in one file)
-
-! ======[ MODEL PARAMETERS]=======
-128.0					! 1/alew
-
-! ===========[ LO MASS WINDOW, SCALES AND EW INPUT ]==================!
-! Matches ref_data/LO_total.txt SETUP A of the KALEU Drell-Yan code:
-!   m(ee) > 50, no upper edge; fixed muR = muF = mZ; Gfermi scheme.
-! mee_max = ecm means "no upper edge" (tau_max = 1).
-
-50.0      13600.0		! m(e+e-) window: mee_min  mee_max   [GeV]
-91.1876   91.1876		! fixed scales:   muR      muF       [GeV]
-1.16638e-5			! G_Fermi  [GeV^-2]  -> alpha via the Gmu relation
+#etaep  obs = eta     leg  = 3     nbins = 25    xmin = -2.5   xmax = 2.5
+#etaem  obs = eta     leg  = 4     nbins = 25    xmin = -2.5   xmax = 2.5
+#drll   obs = dr      legs = 3,4   nbins = 30    xmin = 0.0    xmax = 6.0

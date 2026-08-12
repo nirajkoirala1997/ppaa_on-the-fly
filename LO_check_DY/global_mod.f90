@@ -20,8 +20,12 @@ module globals_mod
 ! throw away real-emission configurations that belong in the cross section.
     real(real64) :: mee_min2, mee_max2
 
-! FIXED FACTORIZATION AND RENORMALIZATION SCALES
+! FACTORIZATION AND RENORMALIZATION SCALES.
+! xmur is carried for labelling only -- the tree amplitude has no power of gs,
+! so nothing in the integrand may read it. When scale_dynamic is set, xmuf holds
+! the fixed fallback and the integrand uses m(e+e-) event by event instead.
     real(real64) :: xmur, xmuf
+    logical      :: scale_dynamic
 
 ! OPENLOOPS PROCESS IDS
     integer :: id_LO(5), id_NLO_1r(5), id_NLO_1loop(5)

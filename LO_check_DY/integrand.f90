@@ -18,20 +18,24 @@
 
 ! xmur is deliberately absent: the tree amplitude carries no power of gs, so muR
 ! cannot enter it. Nothing here is allowed to depend on the renormalization scale.
-  use globals_mod,         only : s, mee_min2, mee_max2, xmuf
+  use globals_mod,         only : s, mee_min2, mee_max2, xmuf, scale_dynamic
   use constants_mod,       only : hbarc2
   use misc_utils_mod,      only : dot
   use matrix_elements_mod, only : evaluate_born
   use psgen_interface,     only : psgen_event, psgen_ndim
+  use analysis_mod,        only : analysis_fill
 
   implicit none
 
   real(8), intent(in) :: yy(10)
+! The VEGAS weight of this point, already divided by the iteration count. It is
+! what the histograms are filled with -- see analysis_mod -- so it is no longer
+! an unused dummy.
   real(8), intent(in) :: vwgt
 
   real(8) :: xa, xb
   real(8) :: xr(psgen_ndim), plab(0:3,4), flux, dlips
-  real(8) :: q(0:3), mee2
+  real(8) :: q(0:3), mee2, muf
   real(8) :: f1(-6:6), f2(-6:6), amp(5), sig
   integer :: i
 
@@ -66,8 +70,17 @@
     if (mee2 < mee_min2 .or. mee2 > mee_max2) return
 
 !--- Parton luminosity and matrix element ----------------------------------!
-    call pdf(xa, xmuf, f1)
-    call pdf(xb, xmuf, f2)
+! The factorization scale, event by event when the card asks for it. Taken from
+! m(e+e-) and not from sqrt(shat): the two are the same number here but part
+! company the moment a gluon is added, and this is the one that stays right.
+    if (scale_dynamic) then
+       muf = sqrt(mee2)
+    else
+       muf = xmuf
+    end if
+
+    call pdf(xa, muf, f1)
+    call pdf(xb, muf, f2)
 
     call evaluate_born(plab(:,1), plab(:,2), plab(:,3), plab(:,4), amp)
 
@@ -88,6 +101,16 @@
 ! hbarc2/(16 pi shat) -- identical to the xnorm this code used with the
 ! hand-written kinvar2 kinematics, which is what makes the switch checkable.
     flo2_LO = hbarc2/flux*sig*dlips
+
+!--- Distributions ---------------------------------------------------------!
+! Every accepted event goes into the histograms with its VEGAS weight. This is
+! a no-op until vsup arms the fill at the start of the frozen-grid production
+! pass, so adaptation points -- drawn from a density that is still moving --
+! never reach a bin. Nothing needs to be said here about which pass we are in.
+!
+! plab is handed over whole, incoming legs included, because the run card
+! indexes legs over ALL particles: leg 3 = e+, leg 4 = e-.
+    call analysis_fill(plab, 4, flo2_LO*vwgt)
 
   end function flo2_LO
 !#################################################################################!

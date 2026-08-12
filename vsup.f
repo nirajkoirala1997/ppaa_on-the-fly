@@ -1,4 +1,29 @@
-      subroutine vsup(nd,npt,its,fxn,avgi,sd,chisq)
+c#####################################################################
+c  VEGAS driver: an adaptation pass followed by a frozen-grid
+c  production pass.
+c
+c  ADAPTATION  (npt_ad x its_ad, ISTAT=3)  refines the grid after every
+c  iteration. Nothing is kept: ISTAT=2 below resets the cumulative
+c  variables, so the quoted result comes from the production pass alone.
+c
+c  PRODUCTION  (npt_pr x its_pr, ISTAT=4)  leaves the grid alone. This
+c  is the only pass that may be histogrammed -- adaptation points come
+c  from a different and still-moving density -- which is what the two
+c  hooks below mark out:
+c
+c     histo_begin_production   arms the fill and zeroes the accumulators
+c     histo_end_iteration      closes one iteration
+c
+c  One iteration is the sample unit for every histogram error bar, so
+c  the hook has to sit exactly here, at the iteration boundary, and not
+c  inside vegas_m. See analysis_mod.f90.
+c
+c  THE SIZES ARE ARGUMENTS, not multiples. This routine used to hardcode
+c  the production pass as 10*npt points and 2*its iterations, which made
+c  the statistics behind a plot something you had to read the integrator
+c  to know. The run card states all four now.
+c#####################################################################
+      subroutine vsup(nd,npt_ad,its_ad,npt_pr,its_pr,fxn,avgi,sd,chisq)
       implicit double precision (a-h,o-z)
       character *25 fname8
       logical plot
@@ -8,49 +33,28 @@
       common/chfile/fname8
       external fxn
       ndim=nd
-      ncall=npt
       nprn = 1
-      itmx=its
+c
+c  --- adaptation: grid refined, results discarded ---
+      ncall=npt_ad
+      itmx=its_ad
       plot=.false.
+      write(6,'(/a)') ' [ VEGAS ] adaptation pass -- grid refining'
       call vegas_m(1,fxn,avgi,sd,chisq)
       do i=1,itmx
          call vegas_m(3,fxn,avgi,sd,chisq)
       enddo
-      ncall=10*npt
-      itmx=2*its
+c
+c  --- production: grid frozen, histograms filled ---
+      ncall=npt_pr
+      itmx=its_pr
       plot=.true.
+      write(6,'(/a)') ' [ VEGAS ] production pass -- grid frozen'
       call vegas_m(2,fxn,avgi,sd,chisq)
+      call histo_begin_production
       do i=1,itmx
          call vegas_m(4,fxn,avgi,sd,chisq)
-      enddo
-      return
-      end
-
-c~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[ Plus specific vsup]      
-      subroutine vsup_2(nd,npt,its,fxn,avgi,sd,chisq)
-      implicit double precision (a-h,o-z)
-      character *25 fname8
-      logical plot
-      common/bvegas/ndim,ncall,nprn,itmx
-      common/plots/plot
-      common/iparallel/ilabel
-      common/chfile/fname8
-      external fxn
-      ndim=nd
-      ncall=npt*10
-      nprn = 1
-      itmx=its
-      plot=.false.
-      call vegas_m(1,fxn,avgi,sd,chisq)
-      do i=1,itmx
-         call vegas_m(3,fxn,avgi,sd,chisq)
-      enddo
-      ncall=ncall*10
-      itmx=its*2
-      plot=.true.
-      call vegas_m(2,fxn,avgi,sd,chisq)
-      do i=1,itmx
-         call vegas_m(4,fxn,avgi,sd,chisq)
+         call histo_end_iteration
       enddo
       return
       end
