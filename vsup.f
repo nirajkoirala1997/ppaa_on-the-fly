@@ -39,7 +39,15 @@ c  --- adaptation: grid refined, results discarded ---
       ncall=npt_ad
       itmx=its_ad
       plot=.false.
+c
+c  Every progress write below is flushed on the spot. A campaign job runs
+c  with stdout redirected to a log (tools/run_seeds.sh), and a redirected
+c  unit is block-buffered: without the flush the whole iteration table
+c  appears only when the run ends, which is exactly when it stops being
+c  useful. One flush per iteration costs nothing next to npt points.
+c
       write(6,'(/a)') ' [ VEGAS ] adaptation pass -- grid refining'
+      flush(6)
       call vegas_m(1,fxn,avgi,sd,chisq)
       do i=1,itmx
          call vegas_m(3,fxn,avgi,sd,chisq)
@@ -50,6 +58,7 @@ c  --- production: grid frozen, histograms filled ---
       itmx=its_pr
       plot=.true.
       write(6,'(/a)') ' [ VEGAS ] production pass -- grid frozen'
+      flush(6)
       call vegas_m(2,fxn,avgi,sd,chisq)
       call histo_begin_production
       do i=1,itmx
@@ -106,7 +115,10 @@ C
          NDM=ND-1
          DXG=DXG*XND
          XJAC=ONE/CALLS
-         IF(NPRN.NE.0) WRITE(6,200) NDIM,CALLS,IT,ITMX,MDS,ND
+         IF(NPRN.NE.0) THEN
+            WRITE(6,200) NDIM,CALLS,IT,ITMX,MDS,ND
+            FLUSH(6)
+         ENDIF
 c         IF(NPRN.NE.0) WRITE(ilabel,200) NDIM,CALLS,IT,ITMX,MDS,ND
 
       ENDIF
@@ -245,6 +257,7 @@ C
             TSI=DSQRT(TSI)
             WRITE(6,201) IT,TI,TSI,AVGI,SD,CHI2A
 c            WRITE(ilabel,201) IT,TI,TSI,AVGI,SD,CHI2A
+            FLUSH(6)
 
          ENDIF
          IF(NPRN.LT.0) THEN

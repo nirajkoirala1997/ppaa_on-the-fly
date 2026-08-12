@@ -9,14 +9,36 @@
 #  This file fully determines a run: given the same card, the same code
 #  and the same PDF set, the numbers reproduce exactly.
 #
+#  Command line overrides:   ./runLO <seed> [outdir]
+#
+#  Those two and no others, so that a report plus the card echoed inside it
+#  is still a complete description of the physics. Both exist because a
+#  campaign runs one process per seed and has to tell each job who it is and
+#  where to write; the report's own '# seed =' header is what states which
+#  seed actually ran, since the [run] seed below is echoed verbatim.
+#
 #  Format:  [section] headers, then  key = value  lines.
 #  Order does not matter.  Comments start with '!' or '#'.
 #  A misspelled or unknown key is a hard error, never a silent default.
 ####################################################################
 
 [run]
-# RNG seed for BRM48, must be > 0.
-seed      = 40
+# RNG seed for BRM48, must be > 0. Overridden by the first command-line
+# argument:  ./runLO <seed> [outdir]
+#
+# ONE RUN IS ONE SEED, and every report is written seed-tagged, so this key
+# names a single job rather than a campaign. Independent statistics come from
+# tools/run_seeds.sh, which runs several seeds in parallel and merges them.
+#
+# THE SEED IS THE RUN INDEX -- 1001, 1002, ... -- as in the KALEU card, so a
+# campaign is reproducible from the index alone. That convention was checked
+# rather than inherited: BRM48 (RANMAR) is not the RANLUX the KALEU tree seeds,
+# and every seed below 30082 lands in the same cell of BRM48I's seed
+# decomposition, sharing most of its table-filling recurrence. Measuring the
+# raw streams settled it -- consecutive seeds cross-correlate no more than
+# unrelated ones do, at the noise floor. See the header of tools/run_seeds.sh
+# for the numbers and for the SEED_STRIDE escape hatch.
+seed      = 1002
 
 # VEGAS runs two passes.
 #
@@ -24,7 +46,7 @@ seed      = 40
 # iteration. These points are thrown away -- they are NOT histogrammed
 # and do not enter the quoted cross section, because they are drawn from
 # a density that is still moving.
-n_adapt   = 300000
+n_adapt   = 100000
 it_adapt  = 10
 
 # PRODUCTION (n_prod x it_prod): grid frozen. This pass produces the
@@ -36,12 +58,19 @@ it_adapt  = 10
 # overstates the variance, while iteration-to-iteration is genuinely
 # independent. Errors are therefore the spread across these it_prod
 # numbers, and it wants to be >~10 for that spread to mean anything.
-n_prod    = 3000000
+n_prod    = 1000000
 it_prod   = 20
 
 [output]
 # Report destination, relative to the runLO working directory. The
-# directory is created if it does not exist.
+# directory is created if it does not exist. A second command-line argument
+# overrides dir, so a batch job can write to a shared collection point.
+#
+# `file` NAMES THE MERGED REPORT, not a single run's. Every run is written
+# seed-tagged -- LO.dat becomes LO_<seed>.dat -- and tools/merge_runs.py puts
+# the combined result on the untagged name. That is what keeps a merged report
+# out of its own inputs: it can never carry a _<seed> suffix, so it cannot be
+# merged again and have its statistics counted twice.
 dir       = ../summary/run_00
 file      = LO.dat
 
@@ -62,7 +91,7 @@ member    = 0
 # gs, so nothing in the integrand is allowed to read it. Only muF moves
 # the answer. mur_fixed is kept so a run can still be labelled and
 # compared against a code that does vary it.
-dynamic   = no
+dynamic   = yes
 mur_fixed = 91.1876
 muf_fixed = 91.1876
 
@@ -76,7 +105,7 @@ muf_fixed = 91.1876
 #
 # NOTE mZ = 91.1876 here, where the KALEU card uses 91.1880. That is
 # deliberate: it is the value the current result was validated at.
-mZ        = 91.1876
+mZ        = 91.1880
 wZ        = 2.4955
 mW        = 80.3692
 wW        = 2.0850
@@ -88,7 +117,7 @@ mtop      = 172.57
 # constants_mod::alpha_gfermi, and handed to OpenLoops explicitly
 # (ew_scheme = 0) rather than left for OpenLoops to rederive -- see the
 # comment there, the two differ by ~0.1%.
-gfermi    = 1.16638e-5
+gfermi    = 1.204399e-5
 
 [cuts]
 # The only selection this build applies.
