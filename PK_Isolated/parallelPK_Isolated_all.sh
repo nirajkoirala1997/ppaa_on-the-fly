@@ -1,0 +1,1 @@
+../shell/Parallel_scripts/parallelPK_Isolated_all.sh

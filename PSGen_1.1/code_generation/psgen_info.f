@@ -1,0 +1,31 @@
+      module psgen_info
+
+      character(80), parameter :: prog_vrsn=
+c Maximum values of some parameters for
+     &         '1.1 of February 20, 2025'
+
+      integer, parameter :: 
+     &      mxptcl=13,        ! Max No of particles in a process
+     &      mxks=1000,        ! Max # of s-channel kinematics for ischnl=2
+     &      mxpmap=4          ! Max No of particles in a subsystem whose 
+     &                        ! propagator should be mapped
+
+      character(10), dimension(mxptcl) :: ptcl,cmass,cwdth
+      character(1), dimension(mxptcl) :: ptclt
+      character(80) :: nicknm
+      integer, dimension(mxptcl) :: ipa,ipg
+      integer :: nptcl,       ! No of particles in an actual process
+     &           nispt,       ! No of the initial state particles
+     &           nfspt,       ! No of the final state particles
+     &           iquadp,      ! Quadruple precision flag
+     &           itchnl,      ! t-channel kinematics flag
+     &           igchnl,      ! photon/gluon kinematics flag
+     &           nkins2,      ! # s-channel kinematics generated in genps
+     &           nking2,      ! # g-channel kinematics generated in genps
+     &           nkint2,      ! # t-channel kinematics generated in genps
+     &           igind2,      ! index od a photon/gluon
+     &           itch1,itch2  ! actual sizes of ixtch1,ixtch2
+      integer, dimension(mxptcl-2) :: ixtch1,ixtch2 ! indices of the particles 
+                                                    ! forming t-channel poles
+
+      end module psgen_info

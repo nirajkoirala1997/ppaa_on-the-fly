@@ -1,0 +1,67 @@
+! ###############################################################################################
+! ##### Always begin comment with "! " in the beginning, vertical space dosen't matter.  ########      
+! ##### However sequence of each input parameters is fixed                               ########
+! ##### Donot modify order the order of parameters                                       ########
+! ###############################################################################################
+
+! ===========[ MACHINE PARAMETERS ]==================!
+
+13600                                 ! center of mass energy
+170				      ! invmass base value
+10				      ! step size added on top of base
+1				      ! max # of iteration on invmass
+
+! ===========[ OUTPUT OF A RUN SUMMARY ]==================!
+
+run_00				      !directory name to save output
+1				      !print data to summary( ON=1/OFF=0 )
+
+! ===========[ LHAPDF NAME ]==================!
+
+MMHT2014lo68cl			! LO pdf 
+MMHT2014nlo68cl			! NLO pdf 
+
+! ===========[ VEGAS INPUT ]==================!
+
+5E+5                            ! VEGAS points        [ real-dipole ]
+10                              ! VEGAS iterations    [ real-dipole ]
+
+1E+5                            ! VEGAS points        [ virtual + eikonal ]
+10                              ! VEGAS iterations    [ virtual + eikonal ]
+
+1E+7    5E+6                    ! VEGAS points        [ PK_Regular & PK_Delta terms ]
+10      10                      ! VEGAS iterations    [ PK_Regular & PK_Delta terms ]
+
+5E+6                            ! VEGAS points        [ LO ]
+10                              ! VEGAS iterations    [ LO ]
+
+1E+7    5E+6                    ! VEGAS points        [ PK_Plus: Born+1 & Born kinematics ]
+10      10                      ! VEGAS iterations    [ PK_Plus: Born+1 & Born kinematics ]
+
+! ===========[ FILE NAMES ]==================!
+
+LO.dat 					| Leading Order contribution
+real.dat 				| Real emission (dipole subtraction) contribution
+virtual.dat 				| Virtual correction contribution
+PK.dat 					| Combined PK result using Plus Distribution regulat and delta
+PK_Plus.dat 				| Plus distribution contribution only
+PK_Regular.dat 				| Regular (non-singular) term contribution
+PK_Delta.dat 				| Delta-function (coefficient) contribution
+
+! ============== below filenames are used to read summary data files ===============
+
+LO_all.dat 				| Combined summary of LO results
+LO_ref.dat 				| Reference LO result (e.g. from a benchmark or older run)
+real_all.dat 				| Combined summary of real emission results
+real_ref.dat 				| Reference real emission result
+virtual_all.dat 			| Combined summary of virtual correction results
+virtual_ref.dat 			| Reference virtual correction result
+PK_all.dat 				| Combined PK result summary
+PK_ref.dat 				| Reference PK result
+PK_Plus_all.dat 			| Summary of Plus distribution contributions
+PK_Regular_all.dat 			| Summary of Regular (non-singular) contributions
+PK_Delta_all.dat 			| Summary of Delta-function contributions
+NLO_ref.dat 				| Total NLO reference result (often: real + virtual + LO in one file)
+
+! ======[ MODEL PARAMETERS]======= 
+128.0					! 1/alew

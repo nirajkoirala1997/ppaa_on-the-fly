@@ -1,0 +1,56 @@
+LHAPDF 6.5.4 loading /home/niraj/1TB-Disc/Workspace-IITG/Packages/Install/LHAPDF-6.5.4/install/share/LHAPDF/NNPDF30_nlo_as_0118/NNPDF30_nlo_as_0118_0000.dat
+NNPDF30_nlo_as_0118 PDF set, member #0, version 2; LHAPDF ID = 260000
+ #####################################################################
+ #        ___                                          version 2.1.3 #
+ #       /   \ ___  ____  _  _  |     __   __  ___   __    ___       #
+ #       |   | |__| |__   |\ |  |    /  \ /  \ |__| /__    __/       #
+ #       \___/ |    |___  | \|  |___ \__/ \__/ |    __/   /__        #
+ #                                                                   #
+ #####################################################################
+ #       You are using OpenLoops 2 to evaluate loop amplitudes       #
+ #                             Authors:                              #
+ #       F. Buccioni, J.-N. Lang, J. Lindert, P. Maierhoefer,        #
+ #                S. Pozzorini, M. Zoller, H. Zhang                  #
+ #                                                                   #
+ #         Please cite Eur.Phys.J. C79 (2019) no.10, 866             #
+ #                     Phys. Rev. Lett. 108 (2012) 111601            #
+ #                     Eur.Phys.J. C78 (2018) no.1, 70               #
+ #                                                                   #
+ #####################################################################
+
+                                                            
+         *******************************************        
+         *              C O L L I E R              *        
+         *                                         *        
+         *        Complex One-Loop Library         *        
+         *      In Extended Regularizations        *        
+         *                                         *        
+         *    by A.Denner, S.Dittmaier, L.Hofer    *        
+         *                                         *        
+         *              version 1.2.4              *        
+         *                                         *        
+         *******************************************        
+                                                            
+   
+   
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     Calculating Regular Terms
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+using vegas points:                   5.E+03
+         iteration:                   10
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
+ [1;32mFor xq =        13000 [0m
+  
+ RM48 INITIALIZED:        40           0         0
+
+
+
+ INPUT PARAMETERS FOR VEGAS:  NDIM=  2  NCALL=       5000.
+                              IT=    0  ITMX=   10
+                              MDS= -1   ND=  25
+   287.90600520747148       -0.0000000000000000                            NaN                       NaN
+Thanks for using LHAPDF 6.5.4. Please make sure to cite the paper:
+  Eur.Phys.J. C75 (2015) 3, 132  (http://arxiv.org/abs/1412.7420)

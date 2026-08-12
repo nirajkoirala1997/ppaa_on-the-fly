@@ -1,0 +1,188 @@
+0 b-quark-quark-W-t:
+3 b~ d u~ : mw,gamw,mt,gamt
+3 b u d~  : mw,gamw,mt,gamt
+3 b~ s c~ : mw,gamw,mt,gamt
+3 b c s~  : mw,gamw,mt,gamt
+3 b~ d u~ : mw,zero,mt,zero
+3 b u d~  : mw,zero,mt,zero
+3 b~ s c~ : mw,zero,mt,zero
+3 b c s~  : mw,zero,mt,zero
+0 b-lepton-lepton-W-t:
+3 b~ e- ve~  : mw,gamw,mt,gamt
+3 b ve e+    : mw,gamw,mt,gamt
+3 b~ mu- vm~ : mw,gamw,mt,gamt
+3 b vm mu+   : mw,gamw,mt,gamt
+3 b~ ta- vt~ : mw,gamw,mt,gamt
+3 b vt ta+   : mw,gamw,mt,gamt
+3 b~ e- ve~  : mw,zero,mt,zero
+3 b ve e+    : mw,zero,mt,zero
+3 b~ mu- vm~ : mw,zero,mt,zero
+3 b vm mu+   : mw,zero,mt,zero
+3 b~ ta- vt~ : mw,zero,mt,zero
+3 b vt ta+   : mw,zero,mt,zero
+0 quark-quark-gluon:
+2 d d~  : mg,zero
+2 u u~  : mg,zero
+2 s s~  : mg,zero
+2 c c~  : mg,zero
+2 b b~  : mg,zero
+2 t t~  : mg,zero
+0 quark-quark-photon:
+2 d d~  : ma,zero
+2 u u~  : ma,zero
+2 s s~  : ma,zero
+2 c c~  : ma,zero
+2 b b~  : ma,zero
+2 t t~  : ma,zero
+0 nucleon-nucleon-photon:
+2 p p~  : ma,zero
+2 n n~  : ma,zero
+0 lepton-lepton-photon:
+2 e- e+   : ma,zero
+2 mu- mu+ : ma,zero
+2 ta- ta+ : ma,zero
+0 quark-quark-Z:
+2 d d~ : mz,gamz
+2 u u~ : mz,gamz
+2 s s~ : mz,gamz
+2 c c~ : mz,gamz
+2 b b~ : mz,gamz
+2 t t~ : mz,gamz
+2 d d~ : mz,zero
+2 u u~ : mz,zero
+2 s s~ : mz,zero
+2 c c~ : mz,zero
+2 b b~ : mz,zero
+2 t t~ : mz,zero
+0 lepton-lepton-Z:
+2 e- e+   : mz,gamz
+2 ve ve~  : mz,gamz
+2 mu- mu+ : mz,gamz
+2 vm vm~  : mz,gamz
+2 ta- ta+ : mz,gamz
+2 vt vt~  : mz,gamz
+2 e- e+   : mz,zero
+2 ve ve~  : mz,zero
+2 mu- mu+ : mz,zero
+2 vm vm~  : mz,zero
+2 ta- ta+ : mz,zero
+2 vt vt~  : mz,zero
+0 quark-quark-W:
+2 d u~ :  mw,gamw
+2 u d~ :  mw,gamw
+2 s c~ :  mw,gamw
+2 c s~ :  mw,gamw
+2 b t~ :  mw,gamw
+2 t b~ :  mw,gamw
+2 d u~ :  mw,zero
+2 u d~ :  mw,zero
+2 s c~ :  mw,zero
+2 c s~ :  mw,zero
+2 b t~ :  mw,zero
+2 t b~ :  mw,zero
+0 lepton-lepton-W:
+2 e- ve~  : mw,gamw
+2 ve e+   : mw,gamw
+2 mu- vm~ : mw,gamw
+2 vm mu+  : mw,gamw
+2 ta- vt~ : mw,gamw
+2 vt ta+  : mw,gamw
+2 e- ve~  : mw,zero
+2 ve e+   : mw,zero
+2 mu- vm~ : mw,zero
+2 vm mu+  : mw,zero
+2 ta- vt~ : mw,zero
+2 vt ta+  : mw,zero
+0 quark-quark-higgs:
+2 c c~ : mh,gamh
+2 b b~ : mh,gamh
+2 t t~ : mh,gamh
+2 c c~ : mh,zero
+2 b b~ : mh,zero
+2 t t~ : mh,zero
+0 lepton-lepton-higgs:
+2 ta- ta+ : mh,gamh
+2 ta- ta+ : mh,zero
+0
+0 Boson interaction vertices (all the particles are incoming to the vertex)
+0 Triple boson vertices:
+0 g g g     :  ggg
+0 w- w+ a   :  aww
+0 w- w+ z   :  zww
+0 w- w+ h   :  hww
+0 z z h     :  hzz
+0 h h h     :  hhh
+0 Quartic boson vertices:
+0 g g g g     :  gggg
+0 w- w+ a a   :  aaww
+0 w- w+ z z   :  zzww
+0 w- w+ a z   :  azww
+0 w- w- w+ w+ :  wwww
+0 z z h h     :  hhzz
+0 w- w+ h h   :  hhww
+0 h h h h     :  hhhh
+0------------------------------------------------------------------------
+0 HLS rules (should all be written below)
+0------------------------------------------------------------------------
+0 Triple boson vertices (all the particles are incoming to the vertex)
+0
+0 scalar-scalar-photon:
+2 pi- pi+  :  ma,zero
+0 k- k+ a        :   akk
+0 k0 k0~ a       :   ak0k0
+0 scalar-scalar-rho0:
+0 pi- pi+ rho0   :   r0pp
+0 k- k+ rho0     :   r0kk
+0 k0 k0~ rho0    :   r0k0k0
+0 scalar-scalar-rho1:
+0 pi- pi+ rho1   :   r1pp
+0 scalar-scalar-rho2:
+0 pi- pi+ rho2   :   r2pp
+0 scalar-scalar-omega:
+0 pi- pi+ ome    :   opp
+0 k- k+ ome      :   okk
+0 k0 k0~ ome     :   ok0k0
+0 scalar-scalar-phi:
+0 pi- pi+ phi    :   phpp
+0 k- k+ phi      :   phkk
+0 k0 k0~ phi     :   phk0k0
+0 scalar-photon-photon:
+0 pi0 a a        :   paa
+0 pi0-photon-rho0:
+0 pi0 a rho0     :   par0
+0 pi- photon rho+:
+0 pi- a rho+     :   parp
+0 pi+ photon rho-:
+0 pi+ a rho-     :   parm
+0 pi0-photon-omega:
+0 pi0 a ome      :   pao
+0 pi0-omega-rho :
+0 pi0 ome rho0   :   por0
+0 pi- omega rho+ :
+0 pi- ome rho+   :   porp
+0 pi+ omega rho- :
+0 pi+ ome rho-   :   porm
+0
+0 Quartic boson vertices (all the particles are incoming to the vertex)
+0
+0 scalar-scalar-photon-photon:
+0 pi- pi+ a a    :   aapp
+0 scalar-scalar-vector-photon:
+0 pi- pi+ rho0 a :   arpp
+0 scalar-scalar-vector-vector:
+0 pi- pi+ rho- rho+ : rrpp
+0 photon pi0 pi+ pi-:
+0 a pi0 pi+ pi-  :   appp
+0 omega pi0 pi+ pi-:
+0 ome pi0 pi+ pi- :   oppp
+0
+0 Particle mixings:
+0
+0 photon-vector meson:
+0 a rho0         :   arho
+0 a ome          :   aome
+0 a phi          :   aphi
+0 a rho1         :   arh1
+0 a rho2         :   arh2
+0
+
