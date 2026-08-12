@@ -8,6 +8,7 @@ module constants_mod
   ! Public constants
   public :: PI, CA, CF, NF, TR, hbarc2, EulerGamma, mass, decayW, eps
   public :: init_mass
+  public :: GF, alpha_gfermi
   public :: delta_cut 
   public :: iselect_integrand,iselect_modified,iselect_integral 
 
@@ -20,7 +21,11 @@ module constants_mod
   real(real64), parameter :: hbarc2 = 0.3894d12 ! in fb
   real(real64), parameter :: EulerGamma = 0.5772156649015328606065120d0
   real(real64), dimension(-25:25) :: mass
-  real(real64), dimension(-25:25) :: decayW 
+  real(real64), dimension(-25:25) :: decayW
+
+! Fermi constant. A variable, not a parameter: the run card sets it, and it is
+! the electroweak input in the Gfermi scheme.
+  real(real64) :: GF = 1.16638d-5
 
 !... this cut is used in PK plus computation
   real(real64), parameter :: delta_cut = 1D-4 
@@ -34,8 +39,29 @@ module constants_mod
 
  
     contains
-   
-     subroutine init_mass 
+
+!==========================================================
+! The electromagnetic coupling in the Gfermi scheme:
+!
+!     alpha = sqrt(2)/pi * GF * mW^2 * (1 - mW^2/mZ^2)
+!
+! Evaluated here, once, with REAL masses, and handed to OpenLoops rather than
+! left for OpenLoops to derive from GF itself. The two are not the same number:
+! in the complex-mass scheme OpenLoops takes the MODULUS of the expression with
+! complex masses, which shifts alpha by ~0.1% and the cross section with it.
+! The KALEU reference (ref_data/LO_total.txt) records that difference as 8 sigma
+! at 60M points, so it is not a rounding effect. Handing over an explicit alpha
+! is also what makes this setup identical to MadGraph's aEWM1 input.
+     real(real64) function alpha_gfermi() result(al)
+     implicit none
+     real(real64) :: mw2, mz2
+       mw2 = mass(24)**2
+       mz2 = mass(23)**2
+       al  = sqrt(2.0_real64)/PI * GF * mw2 * (1.0_real64 - mw2/mz2)
+     end function alpha_gfermi
+!==========================================================
+
+     subroutine init_mass
      implicit none
         mass   = 0.0_real64
         decayW = 0.0_real64
@@ -45,7 +71,7 @@ module constants_mod
         mass(3)   = 0.0_real64       ! strange (s)
         mass(4)   = 0.0_real64       ! charm (c)
         mass(5)   = 0.0_real64       ! bottom (b)
-        mass(6)   = 173.0_real64     ! top (t)
+        mass(6)   = 172.57_real64    ! top (t)
         
         ! Fermions - Leptons
         mass(11)  = 0.0_real64       ! electron (e-)
@@ -75,19 +101,19 @@ module constants_mod
         ! Gauge Bosons
         mass(21)  = 0d0              ! gluon (g)
         mass(22)  = 0d0              ! photon (γ)
-        mass(23)  = 9.118760e+01     ! Z boson
-        mass(24)  = 80.3850115091    ! W+ boson
+        mass(23)  = 91.1876d0        ! Z boson
+        mass(24)  = 80.3692d0        ! W+ boson
         mass(-24) = mass(24)         ! W- boson
-        
+
         ! Higgs
-        mass(25)  = 125.10d0    ! Higgs boson (h)
+        mass(25)  = 125.20d0    ! Higgs boson (h)
         
         ! Optional: ghost and Goldstone bosons, if needed
             ! mass(9000001) = ...d0  ! ghost or BSM
       
         ! DECAY WIDTHS
-         decayW(23) = 2.495200e+00     ! Z-boson
-         decayW(24) = 2.085400e+00     ! W-boson
+         decayW(23) = 2.4955d0         ! Z-boson
+         decayW(24) = 2.0850d0         ! W-boson
       end subroutine init_mass
 end module constants_mod
 

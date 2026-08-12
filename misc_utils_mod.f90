@@ -7,6 +7,7 @@ module misc_utils_mod
   public :: run_tag, pdf_LO, pdf_NLO
   public :: ecm, invmass_base, step_size, it_max
   public :: alew
+  public :: mee_min, mee_max, mur_fixed, muf_fixed, gfermi
   public :: iprint
   public :: pt_real, pt_virtual, pt_reg1, pt_reg2, pt_LO, pt_plus1, pt_plus2
   public :: its_real, its_virtual, its_reg1, its_reg2, its_LO, its_plus1, its_plus2
@@ -22,7 +23,10 @@ module misc_utils_mod
 !------------------[ Variable declarations ]------------------
   character(len=100) :: run_tag, pdf_LO, pdf_NLO
   real(real64) :: ecm, invmass_base, step_size
-  real(real64) :: alew 
+  real(real64) :: alew
+!... Appended block. New keys go at the END of input.input so the positions of
+!... everything above stay valid for the components that already read this file.
+  real(real64) :: mee_min, mee_max, mur_fixed, muf_fixed, gfermi
   integer :: iprint,it_max
   real(real64) :: pt_real, pt_virtual, pt_reg1, pt_reg2, pt_LO, pt_plus1, pt_plus2
   integer :: its_real, its_virtual, its_reg1, its_reg2, its_LO, its_plus1, its_plus2
@@ -110,7 +114,11 @@ subroutine read_input_file(filename)
     call next_data_line(iunit, line); read(line,*) PK_delta_all_file
     call next_data_line(iunit, line); read(line,*) NLO_ref_file
 
-    call next_data_line(iunit, line); read(line,*) alew 
+    call next_data_line(iunit, line); read(line,*) alew
+
+    call next_data_line(iunit, line); read(line,*) mee_min, mee_max
+    call next_data_line(iunit, line); read(line,*) mur_fixed, muf_fixed
+    call next_data_line(iunit, line); read(line,*) gfermi
 
     close(iunit)
 

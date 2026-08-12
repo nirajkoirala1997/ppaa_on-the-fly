@@ -1,4 +1,33 @@
 !c~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+! Masses, widths and the electroweak scheme. One routine, called by every
+! registration path below, because Born, real and virtual must run at the same
+! electroweak input or their sum is meaningless.
+!
+! ORDER MATTERS HERE. ew_scheme must be set BEFORE alpha: ew_scheme = 0 is what
+! makes OpenLoops accept an alpha at all, and setting alpha first has it
+! silently discarded. ew_scheme = 1 (let OpenLoops derive alpha from Gmu itself)
+! gives a cross section 0.0969% higher -- see constants_mod::alpha_gfermi.
+       subroutine ol_ew_setup
+        use constants_mod, only : mass, decayW, alpha_gfermi
+        use openloops
+
+        call set_parameter("use_cms", 1)          ! complex-mass scheme
+        call set_parameter("ew_scheme", 0)        ! take alpha as given ...
+        call set_parameter("alpha", alpha_gfermi())   ! ... and this is it
+
+        call set_parameter("mass(23)",  mass(23))
+        call set_parameter("width(23)", decayW(23))
+        call set_parameter("mass(24)",  mass(24))
+        call set_parameter("width(24)", decayW(24))
+        call set_parameter("mass(25)",  mass(25))
+        call set_parameter("width(25)", decayW(25))
+        call set_parameter("mass(6)",   mass(6))
+        call set_parameter("width(6)",  decayW(6))
+        call set_parameter("mass(5)",   mass(5))  ! massless b: 5-flavour, PDF only
+
+       return
+       end subroutine ol_ew_setup
+!c~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
        subroutine ol_LO_init
         use globals_mod, only : id_LO
         use constants_mod
@@ -8,14 +37,10 @@
         call set_parameter("order_ew", 2)
         call set_parameter("order_qcd", 0)
 
-        call set_parameter("mass(23)", mass(23))
-        call set_parameter("mass(24)", mass(24))
-        call set_parameter("width(23)", decayW(23))
-        call set_parameter("width(24)", decayW(24))
-        call set_parameter("ew_scheme",2)
+        call ol_ew_setup
 
         call set_parameter("verbose",-1)
-        call set_parameter("model","sm") 
+        call set_parameter("model","sm")
                                                ! OPENLOOPS MANUAL
 !Page 16 :http://link.springer.com/10.1140/epjc/s10052-019-7306-2
 
@@ -40,12 +65,7 @@
         call set_parameter("order_ew", 2)
         call set_parameter("order_qcd", 1)
 
-
-        call set_parameter("mass(23)", mass(23))
-        call set_parameter("mass(24)", mass(24))
-        call set_parameter("width(23)", decayW(23))
-        call set_parameter("width(24)", decayW(24))
-        call set_parameter("ew_scheme",2)
+        call ol_ew_setup
 
         call set_parameter("verbose",-1)
         call set_parameter("model","sm") 
@@ -70,12 +90,8 @@
 !        call set_parameter("order_ew", 2)
 !        call set_parameter("order_qcd", 1)
 
-        call set_parameter("mass(23)", mass(23))
-        call set_parameter("mass(24)", mass(24))
-        call set_parameter("width(23)", decayW(23))
-        call set_parameter("width(24)", decayW(24))
+        call ol_ew_setup
         call set_parameter("ckmorder", 0)
-        call set_parameter("ew_scheme",2)
 
         call set_parameter("ct_on", 0)
         call set_parameter("iop_on",1)

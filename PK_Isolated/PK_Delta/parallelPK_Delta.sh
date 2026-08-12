@@ -1,1 +1,0 @@
-../../shell/Parallel_scripts/parallelPK_Delta.sh

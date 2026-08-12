@@ -1,9 +1,0 @@
-1				! machine id Tevatron:0 LHC:1	
-13600.0				! ecm
-MMHT2014nlo68cl			! lhapdf set name common for all
-1				! max # of distribution increment step_size from xq
-100
-10				! step size
-run_01    			! name of dir to save data for analysis
-0				! 1 to write data in file or 0 just to run
-!NNPDF30_nlo_as_0118		! lhapdf set name common for all

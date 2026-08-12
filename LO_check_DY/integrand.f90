@@ -1,170 +1,93 @@
-  double precision function flo2_LO(yy, vwgt) 
-  use globals_mod, only : s,xq
-  use kinematics_mod
-  use misc_utils_mod
-  use constants_mod, pi_mod => PI
-  use matrix_elements_mod
+!#################################################################################!
+! The leading-order integrand for  p p -> e+ e-.
+!
+! Four VEGAS dimensions:
+!   yy(1), yy(2)   the beam momentum fractions x1, x2, thrown flat
+!   yy(3), yy(4)   handed to PSGen as the final-state phase-space variables
+!
+! All four are ordinary VEGAS dimensions and all four get adapted. That is the
+! point of driving PSGen rather than letting a generator own the loop: an extra
+! non-phase-space variable -- a Mellin contour, say -- would simply be yy(5).
+!
+! NOTHING HERE ASSUMES TWO FINAL-STATE PARTICLES. x1 and x2 are handed over as
+! they come, and the mass window is applied to m(e+e-) rebuilt from the
+! generated momenta. Both statements stay true when a gluon is added: only the
+! leg count and psgen_ndim change.
+!#################################################################################!
+  double precision function flo2_LO(yy, vwgt)
 
-  use drivekk
-  use kinparams
-  use psnrmtest
-  use ntdisc
-  use fourmom
+! xmur is deliberately absent: the tree amplitude carries no power of gs, so muR
+! cannot enter it. Nothing here is allowed to depend on the renormalization scale.
+  use globals_mod,         only : s, mee_min2, mee_max2, xmuf
+  use constants_mod,       only : hbarc2
+  use misc_utils_mod,      only : dot
+  use matrix_elements_mod, only : evaluate_born
+  use psgen_interface,     only : psgen_event, psgen_ndim
 
-    ! Input/output
-    real(8), intent(in)  :: yy(10)
-    real(8), intent(in)  :: vwgt
-    real(8)              :: wgt_result
+  implicit none
 
-    real(8) :: scale, AL
+  real(8), intent(in) :: yy(10)
+  real(8), intent(in) :: vwgt
 
-    ! Declare locals
-    real(8) :: rs, xa, xb, rsp, xlow, xhigh
-    real(8) :: xinvmass, scale_local, xmu2, xmur, xmuf
-    real(8) :: sig, xnorm, wgt,alphasPDF
-    real(8) :: s12
-    integer :: ipass
-    double precision, dimension(3) :: x
-    real(8) :: flux,dlips
+  real(8) :: xa, xb
+  real(8) :: xr(psgen_ndim), plab(0:3,4), flux, dlips
+  real(8) :: q(0:3), mee2
+  real(8) :: f1(-6:6), f2(-6:6), amp(5), sig
+  integer :: i
 
-    real(8) :: f1(-6:6), f2(-6:6)
-    real(8) :: p1(0:3), p2(0:3), p3(0:3), p4(0:3)
-    real(8) :: amp(5)
+    flo2_LO = 0d0
 
-!    external alphasPDF
+!--- Beam momentum fractions -----------------------------------------------!
+! Flat, handed straight to PSGen, which takes x1 and x2 as arguments and never
+! generates them. No change of variables, so no jacobian.
+!
+! Deliberately kept free of any importance sampling. A tau = x1*x2 mapping
+! measures 25x better on the MC error at equal statistics, but the sampling is
+! then something the integrand has to get right for each multiplicity, and
+! keeping x1, x2 raw is what lets this integrand carry over to the real
+! emission unchanged. VEGAS still adapts these two dimensions like any other.
+    xa = yy(1)
+    xb = yy(2)
+    if (xa <= 0d0 .or. xb <= 0d0) return
 
-    ! Assign input values
-    xa  = yy(1)
-    xb  = yy(2)
-    rs  = sqrt(s)
-    rsp = sqrt(xa * xb * s)
+!--- Phase space -----------------------------------------------------------!
+    xr(1) = yy(3)
+    xr(2) = yy(4)
 
-    ipass = 0
-    xlow  = xq - eps
-    xhigh = xq + eps
+    call psgen_event(sqrt(s), xa, xb, xr, plab, flux, dlips)
+    if (dlips <= 0d0) return
 
-    ! Kinematics
-    call kinvar2(yy,xinvmass, p1, p2, p3, p4)
-    x(1) = yy(1)
-    x(2) = yy(2)
-    x(3) = yy(5)
-!    x(3) = yy(3)
-!    x(4) = yy(4)
-    xa  = 1d0 !yy(1)
-    xb  = 1d0 !yy(2)
-    xa  = yy(3)
-    xb  = yy(4)
-    call psgen(1,sqrt(s),xa,xb,x,3,flux,dlips)
-!if (dlips > 0.0 ) print*,flux,dlips
-                  print*,flux,dlips
-	do j=1,4
-	print*,p(0,j),p(1,j),p(2,j),p(3,j)
-	enddo
-	stop
-    
-    s12 = 2d0 * dot(p1, p2)
-    scale_local = xinvmass
-    scale = scale_local
+!--- Mass window -----------------------------------------------------------!
+! Rebuilt from the momenta, NOT from x1*x2*s. The two agree only at LO. Doing
+! it this way is what lets the same line survive the addition of a gluon, where
+! shat and m(ee)^2 part company.
+    q    = plab(:,3) + plab(:,4)
+    mee2 = dot(q, q)
+    if (mee2 < mee_min2 .or. mee2 > mee_max2) return
 
-    if (scale >= xlow .and. scale <= xhigh) then
-      scale = xq 
-      xmuf = scale
-      xmur = scale
-      xmu2 = xmuf ** 2
+!--- Parton luminosity and matrix element ----------------------------------!
+    call pdf(xa, xmuf, f1)
+    call pdf(xb, xmuf, f2)
 
-      call pdf(xa, xmuf, f1)
-      call pdf(xb, xmuf, f2)
-      AL = alphasPDF(xmur)
-      call evaluate_born(p1,p2,p3,p4,amp)
+    call evaluate_born(plab(:,1), plab(:,2), plab(:,3), plab(:,4), amp)
 
-     sig =     (f1(-1)*f2(+1)+f1(+1)*f2(-1))*amp(1)  & 
-!     sig =        + (f1(-2)*f2(+2)+f1(+2)*f2(-2))*amp(2)  &
-             + (f1(-3)*f2(+3)+f1(+3)*f2(-3))*amp(3)  
-!             + (f1(-4)*f2(+4)+f1(+4)*f2(-4))*amp(4)   
-!             + (f1(-5)*f2(+5)+f1(+5)*f2(-5))*amp(5)    
+! Flavour sum over d, u, s, c, b. Both beam orderings share one amp(i): the
+! amplitude is NOT symmetric under swapping the incoming quark and antiquark --
+! that asymmetry is the forward-backward asymmetry -- but its antisymmetric part
+! integrates to zero over the full angular range, so for a total with no angular
+! cut this is exact. It stops being exact the moment an eta or cos(theta) cut
+! is introduced; at that point the two orderings need separate amplitudes.
+    sig = 0d0
+    do i = 1, 5
+       sig = sig + (f1(-i)*f2(i) + f1(i)*f2(-i))*amp(i)
+    end do
 
-      xnorm = hbarc2 / (16d0 * pi_mod * xa * xb * s)
-      wgt = xnorm * sig * vwgt
-!      wgt_result = wgt / vwgt / 2d0 / eps
-      wgt_result = wgt / vwgt    ! in matrix overview result is not divided by bin size. 
-    else
-      wgt_result = 0d0
-    end if
-      flo2_LO = wgt_result
+!--- Weight ----------------------------------------------------------------!
+! dsigma = hbarc2/flux * |M|^2 * dLIPS, with flux = 2*shat from PSGen and
+! dLIPS = cps/dlinv = 1/(8 pi) for a massless two-body final state. That is
+! hbarc2/(16 pi shat) -- identical to the xnorm this code used with the
+! hand-written kinvar2 kinematics, which is what makes the switch checkable.
+    flo2_LO = hbarc2/flux*sig*dlips
 
   end function flo2_LO
-!
-!
-!
-!
-!c~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-!      function flo2_LO(yy,vwgt)
-!      use openloops
-!      implicit double precision (a-h,o-z)
-!      dimension yy(10)
-!      dimension f1(-6:6),f2(-6:6),xl(15)
-!      dimension p1(0:3),p2(0:3),p3(0:3),p4(0:3),q(0:3),xp1(0:3),xp2(0:3)
-!     .          ,p_ex(0:3,1:4),c(1:2),Born(1:2),coef(2,-2:0),SumI(-2:0)
-!     .          ,am211(0:2),am211_ir(0:2),amp2cc(6)
-!c... this is for the evaluate_poles
-!     .          ,xm2bare(0:2),xm2ct(0:2),xm2ir(0:2),xm2sum(0:2)
-!       parameter (pi=3.14159265358979d0)
-!c      parameter (hbarc2=0.3894d9)  ! in pb
-!      parameter (hbarc2=0.3894d12)  ! in fb
-!      parameter (EulerGamma = 0.5772156649015328606065120d0)
-!
-!      character*50 name
-!      common/pdfname/name
-!      common/leg_choice/leg
-!      common/energy/s
-!      common/distribution/xq
-!      common/renor_scale/scale
-!      common/prc_id/id_LO,id_NLO_1r,id_NLO_1loop
-!      common/usedalpha/AL,ge
-!      external Born_uU2eE
-!       
-!      rs  = dsqrt(s)
-!      xa     = yy(1)
-!      xb     = yy(2)
-!
-!      rsp = dsqrt(xa*xb*s)
-!        
-!      ipass = 0
-!        eps = 0.5d0
-!       xlow = xq - eps
-!      xhigh = xq + eps
-!
-!      xcut = xq - 10.0d0
-!
-!c      if (rsp .gt. xcut) then
-!
-!
-!        call kinvar2(yy,xinvmass,p1,p2,p3,p4)
-!        s12 = 2d0*dot(p1,p2)
-!         scale  = xinvmass
-!c      if (scale .gt. 0d0 ) then
-!        if ( scale .ge. xlow .and. scale .le. xhigh) then 
-!             
-!              xmuf=scale
-!              xmur=scale
-!              xmu2=xmuf**2
-!
-!              call pdf(xa,xmuf,f1)
-!              call pdf(xb,xmuf,f2)
-!              call setlum(f1,f2,xl)
-!              AL = alphasPDF(xmur)
-!              sig= xl(1)*Born_uU2eE(0,AL,scale,p1,p2,p3,p4)
-!
-!              xnorm=hbarc2/16d0/pi/(xa*xb*s)
-!              wgt=xnorm*sig*vwgt
-!              flo2_LO=wgt/vwgt/2d0/eps
-!       else                  
-!        flo2_LO=0d0
-!       endif
-!      return
-!      end
-!
-!c---------------------------------------------------------------------
-!
-!
-
+!#################################################################################!

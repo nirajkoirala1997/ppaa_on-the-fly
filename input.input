@@ -18,8 +18,8 @@ run_00				      !directory name to save output
 
 ! ===========[ LHAPDF NAME ]==================!
 
-MMHT2014lo68cl			! LO pdf 
-MMHT2014nlo68cl			! NLO pdf 
+PDF4LHC21_40			! LO pdf  (member 0 = LHAPDF id 93100)
+MMHT2014nlo68cl			! NLO pdf
 
 ! ===========[ VEGAS INPUT ]==================!
 
@@ -32,7 +32,7 @@ MMHT2014nlo68cl			! NLO pdf
 1E+7    5E+6                    ! VEGAS points        [ PK_Regular & PK_Delta terms ]
 10      10                      ! VEGAS iterations    [ PK_Regular & PK_Delta terms ]
 
-5E+6                            ! VEGAS points        [ LO ]
+3E+5                            ! VEGAS points        [ LO ]
 10                              ! VEGAS iterations    [ LO ]
 
 1E+7    5E+6                    ! VEGAS points        [ PK_Plus: Born+1 & Born kinematics ]
@@ -63,5 +63,14 @@ PK_Regular_all.dat 			| Summary of Regular (non-singular) contributions
 PK_Delta_all.dat 			| Summary of Delta-function contributions
 NLO_ref.dat 				| Total NLO reference result (often: real + virtual + LO in one file)
 
-! ======[ MODEL PARAMETERS]======= 
+! ======[ MODEL PARAMETERS]=======
 128.0					! 1/alew
+
+! ===========[ LO MASS WINDOW, SCALES AND EW INPUT ]==================!
+! Matches ref_data/LO_total.txt SETUP A of the KALEU Drell-Yan code:
+!   m(ee) > 50, no upper edge; fixed muR = muF = mZ; Gfermi scheme.
+! mee_max = ecm means "no upper edge" (tau_max = 1).
+
+50.0      13600.0		! m(e+e-) window: mee_min  mee_max   [GeV]
+91.1876   91.1876		! fixed scales:   muR      muF       [GeV]
+1.16638e-5			! G_Fermi  [GeV^-2]  -> alpha via the Gmu relation

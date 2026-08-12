@@ -1,109 +1,94 @@
 program DY_at_LO
-    use iso_fortran_env
+!#################################################################################!
+! Leading-order  p p -> e+ e-  (Drell-Yan).
+!
+! Phase space from PSGen, integration by VEGAS (vsup). PSGen supplies the mapping
+! only; VEGAS keeps the loop and adapts all four dimensions.
+!
+! Target for this build: ref_data/LO_total.txt SETUP A of the KALEU Drell-Yan
+! code, sigma = 1.8520052e+06 +- 1.593e+02 fb.
+!#################################################################################!
+    use iso_fortran_env, only : real64
     use globals_mod
-    use printframes
-    use constants_mod
-    use kinparams
-! LOCAL PARAMETERS
-    integer            :: iprint 
-    real(real64)       :: ans, sd, chi2
-    character(len=100) :: run_tag, filename, mode
-    real(real64), allocatable :: ai_lo2(:), err(:)
+    use constants_mod,   only : init_mass, hbarc2, GF, alpha_gfermi
+    use psgen_interface, only : psgen_init, psgen_ndim
+    use misc_utils_mod,  only : read_input_file, ecm, pdf_LO, pt_LO, its_LO,   &
+                                run_tag, iprint, LO_file,                      &
+                                mee_min, mee_max, mur_fixed, muf_fixed, gfermi
 
-! EXTERNAL FUNCTIONS
+    implicit none
+
+    integer            :: npt, its, ndim
+    real(real64)       :: ans, sd, chi2
+    character(len=200) :: outfile
+
     external flo2_LO
 
-    ! Read vegas input
-    open(unit=10, file='../run.vegas.dat', status='unknown')
-    do i = 1, 9
-        read(10, *)
-    end do
-    read(10, *) pt_LO
-    read(10, *) its_LO
-    close(10)
-    npt_LO = pt_LO
+!--- Run card ---------------------------------------------------------------!
+    call read_input_file('../input.input')
 
-    ! Read other parameter
-    open(unit=10, file='../param_card.dat', status='unknown')
-    read(10, *) ge
-    close(10)
+    s    = ecm*ecm
+    xmur = mur_fixed
+    xmuf = muf_fixed
 
-    ! Machine and run parameters
-    open(unit=15, file='../run.machine.dat', status='unknown')
-    read(15, *) mid
-    read(15, *) ecm
-    read(15, *) pdf_name_LO
-    read(15, *) it_max
-    read(15, *) xq_initial
-    read(15, *) step_size
-    read(15, *) run_tag
-    read(15, *) iprint
-    pdf_name_LO = 'MMHT2014lo68cl'
-    close(15)
+! The mass window, squared. Applied to m(e+e-) from the momenta, not to x1*x2.
+    mee_min2 = mee_min**2
+    mee_max2 = mee_max**2
 
-    ! Output filename
-    open(unit=20, file='../output_files.dat', status='unknown')
-    do i = 1, 3
-        read(20, *)
-    end do
-    read(20, *) filename
-    close(20)
+    npt = int(pt_LO)
+    its = its_LO
 
-    if (iprint == 1) call output(run_tag, filename)
-
-    ! Initialization
+!--- Physics setup ----------------------------------------------------------!
     call init_mass
-    call initpdfsetbyname(pdf_name_LO)
+    GF = gfermi
+    ge = alpha_gfermi()
+
+    call initpdfsetbyname(pdf_LO)
     call initPDF(0)
+
     call ol_LO_init
 
-    s   = ecm * ecm
-
+!--- Banner -----------------------------------------------------------------!
     print *, " "
-    print *, "____________________________________"
-    print *, " Calculating LO_DY"
-    print *, "____________________________________"
+    print *, "===================================================="
+    print *, "  p p -> e+ e-   at LO      [ PSGen + VEGAS ]"
+    print *, "===================================================="
+    write(*,'(a,f12.2,a)')    "  ecm            = ", ecm, " GeV"
+    write(*,'(a,a)')          "  PDF            = ", trim(pdf_LO)
+    write(*,'(a,f12.4,a)')    "  muR = muF      = ", xmur, " GeV"
+    write(*,'(a,f9.2,a,f9.2,a)')                                              &
+                              "  m(e+e-) window = [", mee_min, ",", mee_max, " ] GeV"
+    write(*,'(a,es22.15)')    "  alpha (Gmu)    = ", ge
+    write(*,'(a,es22.15)')    "  1/alpha        = ", 1.0_real64/ge
+    write(*,'(a,i3)')         "  VEGAS dims     = ", 2 + psgen_ndim
+    print *, "===================================================="
     print *, " "
 
-    call printframe1(pt_LO, its_LO)
+!--- Phase space ------------------------------------------------------------!
+    call psgen_init(6)
 
-    allocate(ai_lo2(it_max), err(it_max))
+!--- Integrate --------------------------------------------------------------!
+    ndim = 2 + psgen_ndim
 
-    xq = xq_initial
+    call brm48i(40, 0, 0)
+    call vsup(ndim, npt, its, flo2_LO, ans, sd, chi2)
 
-    do j = 1, it_max
-        call printframe2(xq)
-
-        call brm48i(40, 0, 0)
-        call vsup(5, npt_LO, its_LO, flo2_LO, ans, sd, chi2)
-
-        ai_lo2(j) = ans
-        err(j)    = sd
-
-        mode = "Leading Order"
-        call printframe3(mode, ans, sd, chi2)
-
-        xq = xq + step_size
-    end do
-
-    call printframe4(mode)
-
-    xq = xq_initial
-    do j = 1, it_max
-        write(*,'(i7,3e27.15)') int(xq), ai_lo2(j), err(j)
-        xq = xq + step_size
-    end do
+!--- Result -----------------------------------------------------------------!
+    print *, " "
+    print *, "===================================================="
+    write(*,'(a,es16.8,a,es10.3,a)') "  sigma_LO = ", ans, "  +-  ", sd, "  fb"
+    write(*,'(a,f10.4)')             "  chi^2/it = ", chi2
+    print *, "===================================================="
+    print *, " "
 
     if (iprint == 1) then
-        open(unit=20, file='../summary/'//trim(run_tag)//'/'//trim(filename), status='unknown')
-        xq = xq_initial
-        do i = 1, it_max
-            write(20, *) xq, ai_lo2(i), err(i)
-            xq = xq + step_size
-        end do
-        close(20)
+       call execute_command_line('mkdir -p ../summary/'//trim(run_tag))
+       outfile = '../summary/'//trim(run_tag)//'/'//trim(LO_file)
+       open(unit=20, file=trim(outfile), status='unknown')
+       write(20,'(a)') '# sigma_LO [fb]        error [fb]         chi2'
+       write(20,'(3es24.15)') ans, sd, chi2
+       close(20)
+       print *, " Written: ", trim(outfile)
     end if
 
-    deallocate(ai_lo2, err)
-
-end program DY_at_LO 
+end program DY_at_LO
