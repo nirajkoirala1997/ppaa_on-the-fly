@@ -13,3 +13,18 @@ summary/
 # LO clean-out. Regenerate from PSGen_1.1/ when a second process is added.
 LO_check_DY/.psgen_unused/
 __pycache__
+
+# new program builds
+lo_sa/runLO
+kp_sa/runKP
+virt_sa/runVirt
+rs_sa/runRS
+rs_sa/checks/check_ps_volume
+rs_sa/checks/check_dipole_limits
+checks/check_recola_points
+output_cll/
+.collier/
+output.rcl
+*.log
+common/PSGen_1.1/**/*~
+common/PSGen_1.1/**/a.out

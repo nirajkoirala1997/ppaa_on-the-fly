@@ -1,0 +1,47 @@
+      function cs_sect(x,ndim)
+c----------------------------------------------------------------------c
+c The unpolarized cross section
+c
+c Input:  x(ndim) - random numbers supplied by carlos.
+c
+c Karol Kolodziej, University of Silesia, kolodzie@us.edu.pl
+c 27 Oct., 2022, 
+c modiffied on 
+c----------------------------------------------------------------------c
+
+      use drivekk
+      use kinparams
+      use psnrmtest
+      use ntdisc
+      use fourmom
+
+      implicit none
+
+      integer :: ndim,i,istf
+
+      real(kind(1.d0)) :: cs_sect,x(ndim),flux,dlips,mat2
+
+      real(kind(1.d0)) :: x1,x2
+
+      save flux
+
+      x1=1.d0
+      x2=1.d0
+
+      call psgen(ikin,ecm,x1,x2,x,ndim,flux,dlips)
+
+      if (dlips > 0.d0) then ! test
+       mat2=1.d0
+       cs_sect=convc/flux*mat2*dlips
+c       cs_sect=dlips
+       if (ipsnrm == 1) then
+        cs_sect=cs_sect/dlips*dlipst
+       end if
+       icall=icall+1
+      else
+       cs_sect=0.d0
+       ntd0=ntd0+1
+       return
+      end if  !  dlips
+
+      end function cs_sect

@@ -1,197 +1,112 @@
-####################################################################
-#  p p -> e+ e-   run card   (Drell-Yan, leading order)
+# One card for lo_sa, kp_sa, virt_sa and rs_sa. Seed, cuts, histograms and
+# physics values are shared; only each program's [stats_*] block differs.
 #
-#  Phase space: PSGen (Kolodziej), mapping only.
-#  Integrator:  VEGAS (vsup.f), which keeps the loop and adapts every
-#               dimension, phase-space or not.
-#  Amplitudes:  OpenLoops.
-#
-#  This file fully determines a run: given the same card, the same code
-#  and the same PDF set, the numbers reproduce exactly.
-#
-#  Command line overrides:   ./runLO <seed> [outdir]
-#
-#  Those two and no others, so that a report plus the card echoed inside it
-#  is still a complete description of the physics. Both exist because a
-#  campaign runs one process per seed and has to tell each job who it is and
-#  where to write; the report's own '# seed =' header is what states which
-#  seed actually ran, since the [run] seed below is echoed verbatim.
-#
-#  Format:  [section] headers, then  key = value  lines.
-#  Order does not matter.  Comments start with '!' or '#'.
-#  A misspelled or unknown key is a hard error, never a silent default.
-####################################################################
+# 13.6 TeV, one PDF set for all four programs: 10 GeV bins
+# centred on Q = 180..220, muR = muF = m(ee).
 
 [run]
-# RNG seed for BRM48, must be > 0. Overridden by the first command-line
-# argument:  ./runLO <seed> [outdir]
-#
-# ONE RUN IS ONE SEED, and every report is written seed-tagged, so this key
-# names a single job rather than a campaign. Independent statistics come from
-# tools/run_seeds.sh, which runs several seeds in parallel and merges them.
-#
-# THE SEED IS THE RUN INDEX -- 1001, 1002, ... -- as in the KALEU card, so a
-# campaign is reproducible from the index alone. That convention was checked
-# rather than inherited: BRM48 (RANMAR) is not the RANLUX the KALEU tree seeds,
-# and every seed below 30082 lands in the same cell of BRM48I's seed
-# decomposition, sharing most of its table-filling recurrence. Measuring the
-# raw streams settled it -- consecutive seeds cross-correlate no more than
-# unrelated ones do, at the noise floor. See the header of tools/run_seeds.sh
-# for the numbers and for the SEED_STRIDE escape hatch.
-seed      = 1002
+seed      = 1001
+resume    = no
 
-# VEGAS runs two passes.
-#
-# ADAPTATION (n_adapt x it_adapt): the grid is refined after every
-# iteration. These points are thrown away -- they are NOT histogrammed
-# and do not enter the quoted cross section, because they are drawn from
-# a density that is still moving.
+[stats_lo]
 n_adapt   = 100000
 it_adapt  = 10
-
-# PRODUCTION (n_prod x it_prod): grid frozen. This pass produces the
-# quoted number and every histogram.
-#
-# it_prod IS NOT COSMETIC. One production iteration is the sample unit
-# behind every error bar in the report: VEGAS stratifies the points
-# INSIDE an iteration, so their spread understates nothing and
-# overstates the variance, while iteration-to-iteration is genuinely
-# independent. Errors are therefore the spread across these it_prod
-# numbers, and it wants to be >~10 for that spread to mean anything.
 n_prod    = 1000000
 it_prod   = 20
+epsrel    = 0.0
+
+[stats_kp]
+n_adapt   = 100000
+it_adapt  = 10
+n_prod    = 1000000
+it_prod   = 20
+epsrel    = 0.0
+
+[stats_virt]
+n_adapt   = 100000
+it_adapt  = 10
+n_prod    = 1000000
+it_prod   = 20
+epsrel    = 0.0
+
+[stats_rs]
+n_adapt   = 100000
+it_adapt  = 10
+n_prod    = 1000000
+it_prod   = 20
+epsrel    = 0.0
 
 [output]
-# Report destination, relative to the runLO working directory. The
-# directory is created if it does not exist. A second command-line argument
-# overrides dir, so a batch job can write to a shared collection point.
-#
-# `file` NAMES THE MERGED REPORT, not a single run's. Every run is written
-# seed-tagged -- LO.dat becomes LO_<seed>.dat -- and tools/merge_runs.py puts
-# the combined result on the untagged name. That is what keeps a merged report
-# out of its own inputs: it can never carry a _<seed> suffix, so it cannot be
-# merged again and have its statistics counted twice.
-dir       = ../summary/run_00
-file      = LO.dat
+dir       = ../summary/run_01
 
 [beam]
-# hadronic centre-of-mass energy in GeV
 ecm       = 13600.0
 
 [pdf]
-set       = PDF4LHC21_40
-# The central member. This build evaluates one member only.
-member    = 0
+set        = MMHT2014nlo68cl
+member     = 0
+variations = no
 
 [scales]
-# dynamic = yes  ->  muR = muF = m(e+ e-), event by event
-# dynamic = no   ->  the fixed values below are used instead
-#
-# muR IS INERT AT THIS ORDER -- the tree amplitude carries no power of
-# gs, so nothing in the integrand is allowed to read it. Only muF moves
-# the answer. mur_fixed is kept so a run can still be labelled and
-# compared against a code that does vary it.
 dynamic   = yes
 mur_fixed = 91.1876
 muf_fixed = 91.1876
 
+# DYN's committed constants_mod.f90. The Z and W widths are physical here:
+# the Z is resonant in the Drell-Yan amplitude.
 [masses]
-# Masses and widths in GeV, handed to OpenLoops through constants_mod.
-#
-# wZ IS PHYSICS HERE, not bookkeeping. The Z propagator is resonant at
-# shat = mZ^2, in the middle of the range this run generates, and
-# OpenLoops runs in the complex-mass scheme built from exactly these
-# numbers. wZ = 0 is rejected.
-#
-# NOTE mZ = 91.1876 here, where the KALEU card uses 91.1880. That is
-# deliberate: it is the value the current result was validated at.
-mZ        = 91.1880
-wZ        = 2.4955
-mW        = 80.3692
-wW        = 2.0850
-mH        = 125.20
+mZ        = 91.1876
+wZ        = 2.4952
+mW        = 80.3850115091
+wW        = 2.0854
+mH        = 125.10
+wH        = 0.0
 mtop      = 172.57
+wtop      = 0.0
 
+# DYN's LO value. DYN's real piece used 1.16639e-5, a 1e-5 relative difference.
 [ew]
-# alpha is derived from this through the Gmu relation, in
-# constants_mod::alpha_gfermi, and handed to OpenLoops explicitly
-# (ew_scheme = 0) rather than left for OpenLoops to rederive -- see the
-# comment there, the two differ by ~0.1%.
-gfermi    = 1.204399e-5
+gfermi    = 1.16638e-5
+aewm1     = 128.0
 
+[constants]
+pi        = 3.141592653589793238462643
+hbarc2    = 0.3893793721e12
+
+[psgen]
+sqsc      = 1.0e-8
+
+[olp]
+provider       = recola
+real_generator = recola
+
+# Provisional defaults: to be compared with DYN's kinvar3 in the rs_sa step.
+[subtraction]
+del_s     = 1.0e-6
+del_c     = 1.0e-6
+
+[virtual]
+terms     = virt_iop
+
+# Window covering only the five validation bins. mee_min must be > 0.
 [cuts]
-# The only selection this build applies.
-#
-# mee_min IS NOT OPTIONAL. The leptons are massless and the amplitude
-# contains gamma* -> e+ e-, so the integrand diverges as 1/m(e+e-)^2.
-# A zero here does not give a large cross section, it gives a
-# meaningless one, and the code refuses it.
-#
-# mee_max = 0 means no upper edge (resolves to ecm).
-#
-# NO ACCEPTANCE CUTS. There is deliberately no pt_lep_min or
-# eta_lep_max, unlike the KALEU card: integrand.f90 sums the two beam
-# orderings against ONE amplitude evaluation, which is exact only
-# without an angular cut. Adding one means evaluating both orderings
-# first. See the note under [histograms].
-mee_min   = 50.0
-mee_max   = 0.0
+mee_min   = 175.0
+mee_max   = 225.0
 
+# Kept for later photon studies; no integrand applies it yet.
+[isolation]
+mode      = 1
+n         = 1.0
+epsilon   = 0.5
+et_max    = 5.0
+delta_0   = 0.4
+m_hard    = 91.1876
+
+# Legs: 3 = e+, 4 = e-. One q q~ amplitude serves both beam orderings, so only
+# observables even in cos(theta*) are exact: no single-lepton eta or y, no dr.
 [histograms]
-# One row per distribution:
-#   <name>  obs = <observable>  [leg = <i> | legs = <i,j,...>]
-#           nbins = <n>  xmin = <lo>  xmax = <hi>
-#
-# observables:
-#   inv_mass                       whole final state, takes no legs
-#   mass, pt, rapidity,            take a leg list; the listed legs are
-#   pseudorapidity, energy         SUMMED and the observable applied to
-#                                  the sum
-#   dphi, dr, mt                   compare two objects: the leg list is
-#                                  split in half, each half summed
-#
-# Legs are counted over all particles, the two incoming partons being 1
-# and 2, so for this process:
-#   leg 3 = e+   leg 4 = e-
-#
-# Events outside [xmin,xmax] are simply not binned; they still count
-# towards the total cross section. The range is a plotting choice, not
-# a cut.
-#
-# ptll is the free check: at leading order the e+e- system has no
-# recoil, so every event must land in the first bin. Anything else
-# means the two-body kinematics or the boost to the lab frame is wrong.
-#
-# ---------------------------------------------------------------------
-# WHICH DISTRIBUTIONS ARE EXACT IN THIS BUILD
-#
-# integrand.f90 sums both beam orderings -- quark from beam 1, quark
-# from beam 2 -- against a SINGLE amplitude evaluation. The exchange
-# flips the sign of cos(theta*), the lepton angle in the dilepton rest
-# frame measured from the quark direction, so the shortcut is exact for
-# any observable EVEN in cos(theta*) and wrong in the odd part (which is
-# the forward-backward asymmetry) for the rest:
-#
-#   exact    m(ee), pt of either lepton, pt(ll), y(ll), dphi(ll)
-#   NOT      eta or y of a SINGLE lepton, and dr(ll) (it is built from
-#            delta-eta)
-#
-# The eta/dr rows below are left commented for that reason. Uncomment
-# them only after integrand.f90 evaluates the two orderings separately.
-# ---------------------------------------------------------------------
-mee1    obs = mass    legs = 3,4   nbins = 140   xmin = 60.0   xmax = 200.0
-mee2    obs = mass    legs = 3,4   nbins = 70    xmin = 60.0   xmax = 200.0
-mee4    obs = mass    legs = 3,4   nbins = 35    xmin = 60.0   xmax = 200.0
-mee7    obs = mass    legs = 3,4   nbins = 20    xmin = 60.0   xmax = 200.0
-mee10   obs = mass    legs = 3,4   nbins = 14    xmin = 60.0   xmax = 200.0
-mee     obs = mass    legs = 3,4   nbins = 21    xmin = 79.5   xmax = 100.5
-
+mee     obs = mass    legs = 3,4   nbins = 5     xmin = 175.0  xmax = 225.0
 ptep    obs = pt      leg  = 3     nbins = 40    xmin = 0.0    xmax = 200.0
 ptem    obs = pt      leg  = 4     nbins = 40    xmin = 0.0    xmax = 200.0
 ptll    obs = pt      legs = 3,4   nbins = 40    xmin = 0.0    xmax = 100.0
 yll     obs = y       legs = 3,4   nbins = 30    xmin = -4.0   xmax = 4.0
-dphill  obs = dphi    legs = 3,4   nbins = 32    xmin = 0.0    xmax = 3.2
-
-#etaep  obs = eta     leg  = 3     nbins = 25    xmin = -2.5   xmax = 2.5
-#etaem  obs = eta     leg  = 4     nbins = 25    xmin = -2.5   xmax = 2.5
-#drll   obs = dr      legs = 3,4   nbins = 30    xmin = 0.0    xmax = 6.0

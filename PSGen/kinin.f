@@ -1,0 +1,43 @@
+      subroutine kinin(ecm,m,p,flux)
+c----------------------------------------------------------------------c
+c Returns four momenta of the initial state particles in the c.m.s.
+c and the flux factor for the cscattering process
+c
+c                    f1(p1) + f2(p2) -> something
+c
+c The frame is defined such that p1=(E1,0,0,p), p2=(E2,0,0,-p).
+c
+c Karol Kolodziej, University of Silesia, kolodzie@us.edu.pl
+c 15 December, 2005; modiffied on 23 March, 2006;
+c                                 23 May, 2007
+c----------------------------------------------------------------------c
+
+      implicit none
+
+      real(kind(1.d0)) :: ecm,flux,m(2),p(0:3,2),pp,e
+
+c Initial state particle momenta:
+
+      if (m(1) == m(2)) then
+
+       e=ecm/2.d0
+       pp=sqrt((e-m(1))*(e+m(1)))
+
+       p(:,1)=(/e,0.d0,0.d0,pp/)
+       p(:,2)=(/e,0.d0,0.d0,-pp/)
+
+      else
+
+       pp=sqrt((ecm-m(1)-m(2))*(ecm+m(1)+m(2))
+     &        *(ecm-m(1)+m(2))*(ecm+m(1)-m(2)))/(2.d0*ecm)
+
+       p(:,1)=(/sqrt(m(1)**2+pp**2),0.d0,0.d0,pp/)
+       p(:,2)=(/sqrt(m(2)**2+pp**2),0.d0,0.d0,-pp/)
+
+      end if
+
+c Flux factor:
+
+      flux=4.d0*ecm*pp
+
+      end

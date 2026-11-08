@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Extract columns from a run report.
 
-    tools/extract_data.py ../summary/run_00/LO.dat inv
-    tools/extract_data.py ../summary/run_00/LO.dat ptll
-    tools/extract_data.py ../summary/run_00/LO.dat tot     ('total' also works)
-    tools/extract_data.py ../summary/run_00/LO.dat list
+    tools/extract_data.py summary/run_00/LO.dat inv
+    tools/extract_data.py summary/run_00/LO.dat ptll
+    tools/extract_data.py summary/run_00/LO.dat tot     ('total' also works)
+    tools/extract_data.py summary/run_00/LO.dat list
 
 The two arguments may also be given the other way round -- the kaleu tree's
 extract_data.py takes <what> first, and that habit should not cost you a rerun.
@@ -27,11 +27,17 @@ Options:
     --scales      the whole scale grid instead of just the central point
     --with-pdf    also the PDF member variations
 
-WHY THOSE TWO FLAGS EXIST TODAY.  This build integrates one scale point:
-write_report_header stamps '# nvar = 1' and '# variation_order = central', so
-both flags currently print a note and give you the central column anyway.  They
-are here because the run is going to be extended to the 7-point scale variation
-plus PDF members in one pass, and this reader is already written for that file.
+With 'tot', each flag also prints the uncertainty its axis exists to produce,
+so neither number needs a second tool:
+
+    --scales    the 7-point table in the 'Q sc1 sc2 sigma error' form, then the
+                7-point / muF-only / muR-only envelopes around the central scale.
+    --with-pdf  the PDF band (the symmetric-Hessian sum over the error members)
+                and, for a set carrying a trailing alpha_s pair, the alpha_s
+                band and the two in quadrature.
+
+A report with a single variation has neither axis; both flags then print a note
+and give you the central column anyway.
 
 The extension contract, so the Fortran side and this script stay in step:
 
@@ -53,6 +59,7 @@ there is nothing to group and no blank line is written.
 """
 
 import argparse
+import math
 import os
 import re
 import signal
@@ -181,17 +188,120 @@ def variation_tag(tot, which, nscale):
 
     Scale rows identify themselves by their mur/muf factors, but PDF members
     all sit at mur = muf = 1 and would otherwise print as several identical
-    rows.  The writer's own 'mem' column is used when it exists; failing that
-    the variation's index in the report's order is already unambiguous and
-    needs no cooperation from the Fortran side.  Returns (None, None) when no
-    member rows are being printed, which is the whole of today's output.
+    rows.  The writer's own 'pdf_member' column (common/histogram_mod.f90's
+    write_total_xsec) is used when it exists; failing that the variation's
+    index in the report's order is already unambiguous and needs no
+    cooperation from the Fortran side.  Returns (None, None) when no member
+    rows are being printed, which is the whole of today's output.
     """
     if not any(i >= nscale for i in which):
         return None, None
-    if "mem" in tot["cols"]:
-        imem = tot["cols"].index("mem")
+    if "pdf_member" in tot["cols"]:
+        imem = tot["cols"].index("pdf_member")
         return "mem", lambda i: "%7d" % int(round(tot["rows"][i][imem]))
     return "var", lambda i: "%7d" % i
+
+
+def format_sigma(val):
+    """Format sigma_central as readable fixed-point for moderate magnitudes,
+    falling back to scientific notation for very small or very large values."""
+    aval = abs(val)
+    if aval == 0:
+        return "0.0"
+    if 1e-2 <= aval < 1e6:
+        return f"{val:.2f}"
+    else:
+        return f"{val:.4e}"
+
+
+def compute_scale_uncertainties(Q, scale_data, nscale):
+    """Compute 7-point scale uncertainties (sigma_central, 7pt/muF/muR bands).
+
+    scale_data: dict mapping (sc1, sc2) -> sigma for this Q value.
+    nscale: number of scale variations in the grid.
+
+    Returns (sigma_central, unc_7pt, unc_muF, unc_muR) or (None, None, None, None)
+    if the required 7-point grid is not present.
+    """
+    required_scales = {(0.5, 0.5), (0.5, 1.0), (1.0, 0.5), (1.0, 1.0),
+                       (1.0, 2.0), (2.0, 1.0), (2.0, 2.0)}
+    required_scales1 = {(0, 0), (0, 1), (1, 0), (1, 1),
+                        (1, 2), (2, 1), (2, 2)}
+
+    if nscale < 7:
+        return None, None, None, None
+
+    scales_present = set(scale_data.keys())
+    active_scales = None
+    if required_scales.issubset(scales_present):
+        active_scales = required_scales
+    elif required_scales1.issubset(scales_present):
+        active_scales = required_scales1
+    else:
+        return None, None, None, None
+
+    sigma_central = scale_data.get((1.0, 1.0))
+    if sigma_central is None:
+        return None, None, None, None
+
+    sigmas_7pt = [scale_data[scale] for scale in active_scales]
+    max_sigma_7pt = max(sigmas_7pt)
+    min_sigma_7pt = min(sigmas_7pt)
+    max_unc_7pt = ((max_sigma_7pt - sigma_central) / sigma_central) * 100.0
+    min_unc_7pt = ((min_sigma_7pt - sigma_central) / sigma_central) * 100.0
+
+    muF_scales = [s for s in active_scales if s[0] == 1.0]
+    sigmas_muF = [scale_data[s] for s in muF_scales]
+    max_unc_muF = ((max(sigmas_muF) - sigma_central) / sigma_central) * 100.0
+    min_unc_muF = ((min(sigmas_muF) - sigma_central) / sigma_central) * 100.0
+
+    muR_scales = [s for s in active_scales if s[1] == 1.0]
+    sigmas_muR = [scale_data[s] for s in muR_scales]
+    max_unc_muR = ((max(sigmas_muR) - sigma_central) / sigma_central) * 100.0
+    min_unc_muR = ((min(sigmas_muR) - sigma_central) / sigma_central) * 100.0
+
+    return sigma_central, (max_unc_7pt, min_unc_7pt), (max_unc_muF, min_unc_muF), (max_unc_muR, min_unc_muR)
+
+
+def compute_pdf_uncertainties(pdf_rows, ihist, imem, pdf_set):
+    """PDF and alpha_s bands from the member rows of a TOTAL block.
+
+    pdf_rows: the rows after the scale grid, member 0 first.
+    Returns (central, pdf_band, as_band, combined, as_pair, n_hessian), with
+    as_band and as_pair None for a set that carries no alpha_s members, or
+    None when there are no member rows at all.
+
+    PDF4LHC21_40 is a symmetric-Hessian set, so LHAPDF's GetPDFuncertainty
+    reduces to the quadrature sum below and does not need to be called.
+    """
+    if not pdf_rows:
+        return None
+
+    central = pdf_rows[0][ihist]
+
+    # The trailing alpha_s pair is named by the set, not by a fixed member
+    # count: the '_pdfas' suffix is LHAPDF's own convention, and bare
+    # PDF4LHC21_40 also ships members 41/42 (see pdfvar_mod.f90's npdf + 2).
+    name = pdf_set.strip().lower()
+    has_as = name.endswith("_pdfas") or name.startswith("pdf4lhc21_40")
+
+    hessian = pdf_rows[1:-2] if has_as else pdf_rows[1:]
+    pdf_band = math.sqrt(sum((r[ihist] - central) ** 2 for r in hessian))
+
+    if has_as:
+        down, up = pdf_rows[-2][ihist], pdf_rows[-1][ihist]
+        # Members 41/42 sit at alpha_s = 0.117/0.119, so half their spread is
+        # the response to d(alpha_s) = 0.001. PDF4LHC21 quotes the alpha_s
+        # uncertainty at 0.0015, hence the 1.5x: |up-down|/2 * 3/2.
+        as_band = abs(up - down) * 0.75
+        combined = math.sqrt(pdf_band ** 2 + as_band ** 2)
+        as_pair = (int(pdf_rows[-2][imem]), int(pdf_rows[-1][imem]))
+    else:
+        as_band = None
+        combined = pdf_band
+        as_pair = None
+
+    return central, pdf_band, as_band, combined, as_pair, len(hessian)
 
 
 def pick(blocks, want):
@@ -254,21 +364,81 @@ def main():
 
     if want in ("total", "tot"):
         tot = total_block(blocks)
-        # Both estimators, on purpose: VEGAS quotes a variance-weighted average
-        # over iterations, the histograms an unweighted one, and their
-        # agreement is the cheapest signal that the run has converged. Printing
-        # only one of them would throw that check away.
         cols = ["mur", "muf", "vegas", "vegas_err", "chi2_per_it",
                 "histo", "histo_err"]
         idx = [column(tot, c, "TOTAL") for c in cols]
         which = selected(nvar, nscale, icentral, a)
         tag_hdr, tag = variation_tag(tot, which, nscale)
-        print("#" + "%9s%9s" % ("mur", "muf") + ("%7s" % tag_hdr if tag else "") +
-              "".join("%22s" % c for c in cols[2:]))
-        for i in which:
-            r = tot["rows"][i]
-            print(" %9.4f%9.4f" % (r[idx[0]], r[idx[1]]) + (tag(i) if tag else "") +
-                  "".join("%22.13e" % r[j] for j in idx[2:]))
+
+        # Every PDF member sits at mur = muf = 1, so feeding the member rows
+        # into the scale table would overwrite its central point with the last
+        # member's cross section. The two axes are read separately.
+        scale_idx = [i for i in which if i < nscale]
+        pdf_idx = [i for i in which if i >= nscale]
+
+        if a.scales and nscale > 1:
+            # Print 7-point scale table in Q sc1 sc2 sigma error format (for 7scale_extract)
+            Q = float(meta.get("ecm", "0"))
+            if Q == 0:
+                sys.exit("ERROR: report has no 'ecm' metadata; cannot create scale table.")
+
+            imur, imuf = idx[0], idx[1]
+            ihist, ihist_err = idx[5], idx[6]
+
+            print("# 5-column scale table for 7scale_extract")
+            print("# columns: Q sc1[factor] sc2[factor] sigma[fb] error[fb]")
+
+            scale_data = {}
+            for i in scale_idx:
+                r = tot["rows"][i]
+                sc1, sc2 = r[imur], r[imuf]
+                sigma, error = r[ihist], r[ihist_err]
+                scale_data[(sc1, sc2)] = sigma
+                print(" %10d %8.4f %8.4f %24.16E %24.16E" % (int(Q), sc1, sc2, sigma, error))
+
+            result = compute_scale_uncertainties(Q, scale_data, nscale)
+            if result[0] is not None:
+                sigma_central, unc_7pt, unc_muF, unc_muR = result
+                print()
+                print("# Scale uncertainties")
+                print(f"{'Q_value':<12} {'Sigma_Central':<18} {'7pt Unc(%)':<18} {'muF Unc(%)':<18} {'muR Unc(%)':<18}")
+                print("-" * 84)
+                sigma_str = format_sigma(sigma_central)
+                unc_7pt_str = f"{unc_7pt[0]:>+5.1f} {unc_7pt[1]:>5.1f}"
+                unc_muF_str = f"{unc_muF[0]:>+5.1f} {unc_muF[1]:>5.1f}"
+                unc_muR_str = f"{unc_muR[0]:>+5.1f} {unc_muR[1]:>5.1f}"
+                print(f"{int(Q):<12} {sigma_str:<18} {unc_7pt_str:<18} {unc_muF_str:<18} {unc_muR_str:<18}")
+            else:
+                print()
+                print(f"{int(Q):<12} [Skipped: Missing 1 or more of the 7 scale variations]")
+        else:
+            # Original output format for single variation or non-scales mode
+            print("#" + "%9s%9s" % ("mur", "muf") + ("%7s" % tag_hdr if tag else "") +
+                  "".join("%22s" % c for c in cols[2:]))
+            for i in which:
+                r = tot["rows"][i]
+                print(" %9.4f%9.4f" % (r[idx[0]], r[idx[1]]) + (tag(i) if tag else "") +
+                      "".join("%22.13e" % r[j] for j in idx[2:]))
+
+        if a.with_pdf and pdf_idx:
+            imem = column(tot, "pdf_member", "TOTAL")
+            pdf_set = meta.get("pdf", "?")
+            result = compute_pdf_uncertainties([tot["rows"][i] for i in pdf_idx],
+                                               idx[5], imem, pdf_set)
+            if result is not None:
+                central, pdf_band, as_band, combined, as_pair, nhess = result
+                pct = lambda v: 100.0 * v / central if central else 0.0
+                print()
+                print("# PDF / alpha_s uncertainties   (%d Hessian members, %s)"
+                      % (nhess,
+                         "alpha_s pair = members %d,%d" % as_pair if as_pair
+                         else "no alpha_s pair"))
+                print(f"{'PDF_set':<22} {'Central':<14} {'PDF(%)':<12} "
+                      f"{'alphas(%)':<12} {'Combined(%)':<12}")
+                print("-" * 74)
+                as_str = f"{pct(as_band):.2f}" if as_band is not None else "n/a"
+                print(f"{pdf_set:<22} {format_sigma(central):<14} "
+                      f"{pct(pdf_band):<12.2f} {as_str:<12} {pct(combined):<12.2f}")
         return
 
     key = pick(blocks, a.what)

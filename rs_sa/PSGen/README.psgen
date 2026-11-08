@@ -1,0 +1,201 @@
+PSGen 1.1 (Karol Kolodziej) -- the subset linked into runDipole
+=================================================================
+
+This directory is ASSEMBLED, not authored -- same convention as ../../PSGen and
+../../../decay/PSGen. It holds the files PSGen generates for 'g g -> z h g' plus
+the runtime routines those files actually reach. THIS IS THE FIRST 3-FINAL-LEG
+PSGen instance in this repository (the existing sets are 2- and 4-body).
+
+Local edits: one vendored file (inprms_ps.f) and one data-file addition shared
+with every study (common/PSGen_1.1/code_generation/genps.dat) -- both described
+in full below.
+
+
+PSGen could not find this topology on its own
+-----------------------------------------------
+
+Regenerating this set is NOT a routine "change PSGen.f:36 and `make code`" the
+way ../../PSGen and ../../../decay/PSGen were. With itchnl=0 and igchnl=0, 1 or
+2 (all three tried), PSGen's own automatic channel search produced `nkin=0` --
+an EMPTY kinschnl.f, not an inefficient one.
+
+The mechanism (traced in genps.f, not guessed from genps.dat alone): for a
+3-final-leg process, genps.f loops over every ACTIVE (non-"0"-prefixed) row of
+genps.dat and counts a match (`iv`) whenever TWO of the final-state particle
+names both appear in that row's particle list. Only matched rows (`iv > 0`) ever
+get a channel built. read_process.f correctly detects the lone final-state
+gluon and forces igchnl=2 regardless of PSGen.f's own setting (see
+read_process.f's "Check for a photon or gluon in the final state" block), and
+genps.f's `nfsp==3 .and. igind2>nispt` branch correctly looks for a genps.dat
+match among the OTHER two final particles -- {Z, H} here. But no active row in
+the vendored genps.dat lists both `z` and `h` together (the only place they
+co-occur, `0 z z h : hzz` / `0 z z h h : hhzz`, are `0`-prefixed comment rows
+under "Boson interaction vertices", which genps.f's reader explicitly skips).
+So `iv` stays 0 and no channel is ever built -- not a flag-tuning problem, a
+genuine gap in the tool's vocabulary: PSGen's channel builder needs the
+"everything but the radiated boson" residue to match a TABULATED resonance or
+radiation pattern, and Z H isn't the decay product of anything in the Standard
+Model, so no such pattern could exist.
+
+THE FIX: one technical, non-physical row added to
+common/PSGen_1.1/code_generation/genps.dat (shared, permanent, and inert for
+every other process -- no other final state in this repository's history has
+both z and h):
+
+    2 z h : mt,zero
+
+This reuses `mt`/`zero`, already declared everywhere in the toolchain, purely as
+an available mass/width pair -- top plays no physics role here. `,zero` for the
+width is genps.dat's own established convention for a flat/non-resonant mapping
+(every physical entry in the file already has a `,zero` variant alongside its
+`,gamX` one), so this is squarely within the tool's existing design, not a
+logic change. With this row present, PSGen's existing `nfsp==3` branch builds
+exactly one channel:
+
+    kin3_2(3,4,mt,zero,5,...)
+
+-- legs 3,4 (Z,H) paired under the technical invariant mass, leg 5 (the gluon)
+recoiling against the pair. The Breit-Wigner-style mapping (mapckk) is an exact
+reparametrization of the invariant-mass integration variable for ANY positive
+technical mass, so this is a parametrization choice, not a physics input --
+see genps.dat's own comment at the new row, and inprms_ps.f's header below.
+`mt = 173 GeV` sits below the physical Z+H threshold (216.4 GeV), which costs
+VEGAS sampling efficiency, not correctness; revisit only if convergence needs
+it (a later, better choice of technical mass -- or width -- is a one-line
+genps.dat edit, not a structural change).
+
+
+Regenerating
+------------
+
+    cd ../../../common/PSGen_1.1/code_generation
+    #   PSGen.f:36     process='g g -> z h g'
+    #                  itchnl=0  igchnl=0 (read_process.f overrides to 2 anyway)
+    #                  iquadp=0  nicknm='auto'
+    #   proc_name.f    proc='' -- a NON-BLANK string there silently overrides
+    #                  the process in PSGen.f. This bit the decay build once;
+    #                  it also bit this regeneration once, from a leftover
+    #                  'u u~ -> e+ e-' in a scratch copy -- checked and fixed
+    #                  before trusting the output.
+    #   genps.dat      the `2 z h : mt,zero` row above is ALREADY THERE,
+    #                  committed -- do not re-add it.
+    make code
+
+RESTORE PSGen.f:36 AND proc_name.f:proc AFTERWARDS (`git checkout --
+common/PSGen_1.1/code_generation`) -- same rule as the other two sets. genps.dat's
+new row is NOT reverted; it is permanent, shared infrastructure.
+
+emits, in code_generation/: kinparams.f nkin_decl.f fourmom.f kincls.f
+kinschnl.f process_nm.dat (plus engymom.f tchcalls.f kingchnl.f kinkk1.f,
+unused: itchnl=igchnl=0 as far as PSGen.f is concerned -- read_process.f's
+internal override to igchnl=2 does not change which files come out, only which
+channel gets built).
+
+Copy the first six here, then re-copy the runtime set listed below. Read the
+new kinschnl.f first: with the genps.dat fix above it names exactly one
+routine, kin3_2 -- that is what decided the runtime set below, the same way
+../../PSGen/README.psgen's kinschnl.f decided kin2_2 alone was needed there.
+
+
+What was generated
+-------------------
+
+nexp = 5, nfsp = 3 (Z, H, g)  ->  psgen_ndim = 3*nfsp - 4 = 5 random numbers
+nkin = 1 channel:
+
+    1        kin3_2(3,4,mt,zero,5)      {Z,H} technical pair, g recoils
+
+ONE CHANNEL, same as ../../PSGen's Born case, but for a structurally different
+reason: there the final state needed NO channel at all (kin2_2, direct 2-body
+production, no invariant-mass sampling). Here a channel is structurally
+required -- three final particles cannot be parametrized without SOME recursive
+grouping -- but there is only one way to group them (pair the two that have no
+physical resonance under a technical propagator, radiate the third), so
+multichannel sampling still has nothing to choose between.
+
+The channel dimension in the eventual integrand therefore still always
+resolves to 1, kept for the same reason ../../PSGen's does: so the integrand
+shape does not have to special-case a single-channel process.
+
+kin3_2 samples the {Z,H} invariant mass via mapckk (around the technical
+mt/zero "propagator", bounded below by sqsc and below by mZ+mH), builds the
+pair in its own rest frame via kinff, builds the pair-vs-gluon split at the
+full CM energy via a second kinff call, then boosts the pair's two momenta
+into the frame the gluon recoils in. This is the SAME kinff routine
+../../PSGen's kin2_2 already uses, called twice instead of once.
+
+
+The linked set
+--------------
+
+    generated  kinparams fourmom kincls kinschnl process_nm.dat
+    modules    inprms_ps qrkinds kincuts psnrmtest ntdisc drivekk prtinds
+    setup      qp_masses define_cuts set_indices cutinfo impcuts logo_ps
+               print_masses param_trans
+    kinematics kinin kinin_qp kinff kinff_qp kin3_2 mapckk mapc_qp boost boost_qp
+    dispatch   kinschnl kincls psncls psgen
+    include'd  kin_tests.f  process_nm.dat
+
+NEW RELATIVE TO ../../PSGen's SET: mapckk.f, mapc_qp.f, boost.f, boost_qp.f,
+kin3_2.f (replacing kin2_2.f, not needed here -- kin3_2 calls kinff directly,
+the same routine kin2_2 itself called, so kin2_2 is not a dependency of
+kin3_2). ../../PSGen's README explicitly listed mapckk/boost as NOT copied
+there, "since kin2_2 is self-contained"; this is exactly the case where they
+ARE needed, for the reason stated there.
+
+The `_qp` twins are dead at iqprec = 0 but referenced at compile time, so they
+link -- same as ../../PSGen. Object order in the makefile IS the build order;
+there is no dependency tracking.
+
+NOT copied, same reasoning as ../../PSGen:
+    carlos.f cs_sect.f PSGen_test_mpi.f ranlux.f kin2_2.f
+    (every OTHER kinN_*.f in PSGen_1.1/mc_computation -- other multiplicities)
+
+
+Local edits
+-----------
+
+inprms_ps.f (copied from ../../../common/PSGen_1.1/mc_computation/, the
+pristine upstream, then edited -- NOT from ../../PSGen/inprms_ps.f, though the
+edit pattern is the same one that file already documents):
+
+  * mz/gamz/mw/gamw set to ../input.input's values (91.188/2.441404/80.419/
+    2.0476), matching ../../PSGen/inprms_ps.f exactly. mZ is LOAD-BEARING (an
+    external on-shell leg; psgen_init REFUSES TO RUN on a mismatch). mW is
+    inert (no W in this final state).
+
+  * mt, gamt LEFT UNCHANGED FROM UPSTREAM (173.0/1.5) -- and unlike
+    ../../PSGen's inprms_ps.f, this is not simply "unused elsewhere": mt is
+    now this build's OWN technical z-h pairing mass (see above), so leaving it
+    at the upstream default rather than picking a new value is itself the
+    choice being made, not an oversight.
+
+  * `sqsc` promoted from parameter to variable, same edit as ../../PSGen, but
+    NOT inert here: kin3_2 DOES link mapckk, so sqsc genuinely sets the lower
+    edge of the {Z,H} invariant-mass window sampled. Left at the upstream
+    default (1e-8) since the real lower edge is set by mZ+mH regardless.
+
+No other vendored file is modified.
+
+
+Verification (Stage 3 of onshell/dipole_standalone's build order)
+-------------------------------------------------------------------
+
+../checks/check_psgen3body.f90 calls psgen_init/psgen_event at 7 hand-picked
+points (fixed, not random, so a failure is reproducible) and checks, at each:
+
+    p3^2 = mZ^2, p4^2 = mH^2, p5^2 = 0            (on-shell, +--- metric)
+    sum(p_in) = sum(p_out)                        (momentum conservation)
+
+Result: 7/7 passed, all four quantities agreeing to ~1e-9 relative or better
+(floating-point noise at the GeV^2/GeV scale of this process) -- see the
+build's own progress record for the full printout. This is the same
+verification ../../PSGen/README.psgen's "verification step 4" describes for
+the 2-body case, done here for the first time at nfsp=3.
+
+Not yet checked: PSGen's own im_test/ip_test internal consistency flags
+(left at 0 in psgen_interface.f90, same as ../../kp_sa -- cheap to
+switch on from a throwaway driver if the kinematics are ever under suspicion
+again) and VEGAS-level convergence of the actual subtracted integrand, which
+is a later stage of this build (R/sum(D) -> 1 in the soft and collinear
+limits), not this one.

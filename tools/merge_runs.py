@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Merge several independent (seed) runs into one report.
 
-    tools/merge_runs.py ../summary/run_00/LO_*.dat -o ../summary/run_00/LO.dat
-    tools/merge_runs.py ../summary/run_00/LO_*.dat          # -> LO.dat beside them
+    tools/merge_runs.py summary/run_00/LO_*.dat -o summary/run_00/LO.dat
+    tools/merge_runs.py summary/run_00/LO_*.dat          # -> LO.dat beside them
+    tools/merge_runs.py summary/run_00/born             # discovers born_<seed>.dat
+    tools/merge_runs.py summary/run_00                     # merge all contributions
+    tools/merge_runs.py summary/run_00 --force             # overwrite all outputs
 
 THE SAMPLE UNIT IS A VEGAS ITERATION, NOT AN EVENT.  This is the one thing that
 does not carry over from the KALEU tree's merge, and getting it wrong would
@@ -45,6 +48,12 @@ VEGAS grid adapted badly still contributes its full weight, drags the mean and
 SHRINKS the pooled error -- a confidently quoted wrong number.  The per-seed
 table and chi2/dof printed at the end are what expose that, and they are the
 reason to run a campaign rather than one long job.
+
+CHANNEL SUMMING (--sum-channels).  When different integrated quantities are
+already merged separately (e.g. rs_gg.dat, rs_qg.dat, rs_qqbar.dat), this mode
+sums them into a total where each is an independent physical measurement. Means
+add and errors combine in quadrature -- the opposite of seed-merging, which
+pools repeated measurements of the SAME quantity.
 """
 
 import argparse
@@ -53,10 +62,18 @@ import os
 import re
 import sys
 from collections import OrderedDict
+from pathlib import Path
 
 # Blocks that carry data rows. RUN and INPUT CARD are comment-only and are
 # handled separately: the first supplies the metadata, the second is echoed.
 DATA_KINDS = ("TOTAL", "HISTOGRAM2D", "HISTOGRAM")
+
+CAMPAIGN_LAYOUT = (
+    ("born", "born"),
+    ("kp", "kp"),
+    ("virt", "virt"),
+    ("rs", "rs"),
+)
 
 # Header keys that must agree across every input, with the value assumed for a
 # report written before that key existed. Two runs differing in any of these
@@ -244,13 +261,18 @@ def card_signature(card_lines):
     -- masses, ew, cuts, the histogram definitions -- must match, and the report
     header alone does not cover it: two runs at different mZ have identical
     headers.
+
+    [stats_*] is dropped too: those are every program's call counts, echoed
+    into every report, so a kp report must still pool after [stats_lo] was
+    edited.  A report's own points per iteration is checked through
+    npoints_per_iter in CONSISTENCY.
     """
     sig = []
     for line in card_lines:
         m = re.match(r"#\s*(\[\w+\])\s*(.*)$", line.strip())
         if not m:
             continue
-        if m.group(1) in ("[run]", "[output]"):
+        if m.group(1) in ("[run]", "[output]") or m.group(1).startswith("[stats_"):
             continue
         sig.append("%s %s" % (m.group(1), m.group(2).strip()))
     return sig
@@ -431,6 +453,21 @@ def merge(paths, outfile):
     total_iter = counts.pop()
     npi = int(ref_meta.get("npoints_per_iter", "0"))
 
+    total_key = next((k for k, b in ref_blocks.items() if b.kind == "TOTAL"), None)
+    if total_key is not None:
+        _, _, seed_chi2 = seed_consistency(usable, total_key)
+        if seed_chi2 > 5.0:
+            # Infer contribution name from first input filename (lo_*.dat -> LO)
+            first_file = os.path.basename(usable[0][0])
+            contrib_match = re.match(r"^([a-z_]+?)_", first_file)
+            contrib = contrib_match.group(1).upper() if contrib_match else "?"
+            input_list = ", ".join(os.path.basename(p) for p, _, _, _ in usable)
+            sys.exit("ERROR %s: seed results disagree (chi2/dof = %.2f); refusing "
+                     "to merge them.\n"
+                     "       Merging: %s\n"
+                     "       Run the seeds separately or investigate VEGAS convergence."
+                     % (contrib, seed_chi2, input_list))
+
     with open(outfile, "w") as out:
         out.write("# ==== RUN ====\n")
         out.write("# mode = %s\n" % ref_meta.get("mode", ""))
@@ -442,8 +479,8 @@ def merge(paths, outfile):
         out.write("# npoints_total = %d\n" % (npi * total_iter))
         out.write("# ecm = %s\n" % ref_meta.get("ecm", ""))
         out.write("# pdf = %s\n" % ref_meta.get("pdf", ""))
-        for key in ("amplitude", "cuts", "scales", "nvar", "nscale",
-                    "variation_order"):
+        for key in ("amplitude", "cuts", "scales", "nvar", "nscale", "scale_order",
+                    "npdfvar", "pdf_central_member", "variation_order"):
             if key in ref_meta:
                 out.write("# %s = %s\n" % (key, ref_meta[key]))
         out.write("# ==== END RUN ====\n\n")
@@ -488,6 +525,13 @@ def _write_total(out, key, ref, usable, S1, S2, N, ref_path):
     imur = ref.col("mur", ref_path)
     imuf = ref.col("muf", ref_path)
     iveg = ref.col("vegas", ref_path)
+    # pdf_member is absent from a pre-PDF-axis report (nvar = nscale, no
+    # [pdf] variations): every row there is the scale grid alone, and the
+    # column simply is not in ref.colline, so the merged file must not
+    # claim one either -- that keeps the row and its echoed header in
+    # step, since colline is echoed verbatim just above this loop.
+    has_pdfmem = "pdf_member" in ref.cols
+    ipdf = ref.col("pdf_member", ref_path) if has_pdfmem else None
 
     for ir, ref_row in enumerate(ref.rows):
         vals = [blocks[key].rows[ir][iveg] for _, _, blocks, _ in usable]
@@ -497,9 +541,14 @@ def _write_total(out, key, ref, usable, S1, S2, N, ref_path):
         # no width division -- the same convention the Fortran writer uses.
         histo, histo_err = pooled(S1[ir], S2[ir], N)
         hw, hww = repack(S1[ir], S2[ir], N)
-        out.write("%10.4f%10.4f%24.16E%24.16E%24.16E%24.16E%24.16E%24.16E%24.16E\n"
-                  % (ref_row[imur], ref_row[imuf], vegas, vegas_err, chi2,
-                     histo, histo_err, hw, hww))
+        if has_pdfmem:
+            out.write("%10.4f%10.4f%6d%24.16E%24.16E%24.16E%24.16E%24.16E%24.16E%24.16E\n"
+                      % (ref_row[imur], ref_row[imuf], int(ref_row[ipdf]),
+                         vegas, vegas_err, chi2, histo, histo_err, hw, hww))
+        else:
+            out.write("%10.4f%10.4f%24.16E%24.16E%24.16E%24.16E%24.16E%24.16E%24.16E\n"
+                      % (ref_row[imur], ref_row[imuf], vegas, vegas_err, chi2,
+                         histo, histo_err, hw, hww))
 
 
 def _write_hist(out, ref, S1, S2, N, nvar):
@@ -530,9 +579,7 @@ def _report(usable, skipped, paths, acc, ref_blocks, outfile, total_iter, npi):
     iveg = ref.col("vegas", ref_path)
     S1, S2, N = acc[key]
 
-    # Row 0 is the central variation while nvar is 1; with a scale grid it is
-    # the (1,1) factor pair, which is where the writer puts the central point.
-    ir = 0
+    ir = _central_row(ref, ref_path)
     vals = [blocks[key].rows[ir][iveg] for _, _, blocks, _ in usable]
     errs = [blocks[key].rows[ir][iveg + 1] for _, _, blocks, _ in usable]
     vegas, vegas_err, chi2 = weighted_mean(vals, errs)
@@ -541,10 +588,32 @@ def _report(usable, skipped, paths, acc, ref_blocks, outfile, total_iter, npi):
     print("  sigma [VEGAS, weighted] = %.8E +- %.4E fb" % (vegas, vegas_err))
     print("  sigma [histograms, pooled] = %.8E +- %.4E fb" % (histo, histo_err))
 
-    report_seed_spread(usable, key, iveg, vegas, chi2)
+    report_seed_spread(usable, key, iveg, ir, vegas, chi2)
 
 
-def report_seed_spread(usable, key, iveg, mean, chi2):
+def _central_row(ref, path):
+    """Index of the TOTAL block's central (mur=1, muf=1) row.
+
+    With nvar = 1 -- a pre-scale-grid report -- mur/muf are the ABSOLUTE
+    scales that build wrote (see histogram_mod.f90's old convention), never
+    exactly 1.0, so row 0 is the only row and stays the answer. With a
+    scale grid every row's mur/muf are FACTORS, and the first one where
+    both equal 1.0 is the true central point regardless of whether a PDF
+    axis trails it -- that block repeats (1,1) once per member, and this
+    picks the first occurrence, which precedes all of them.
+    """
+    try:
+        imur = ref.col("mur", path)
+        imuf = ref.col("muf", path)
+    except ValueError:
+        return 0
+    for ir, row in enumerate(ref.rows):
+        if abs(row[imur] - 1.0) < 1e-6 and abs(row[imuf] - 1.0) < 1e-6:
+            return ir
+    return 0
+
+
+def report_seed_spread(usable, key, iveg, ir, mean, chi2):
     """Compare the seeds against each other, not just against nothing.
 
     Summing accumulators is exact but blind: if one seed's VEGAS grid adapted
@@ -556,8 +625,8 @@ def report_seed_spread(usable, key, iveg, mean, chi2):
     """
     rows = []
     for p, meta, blocks, _ in usable:
-        v = blocks[key].rows[0][iveg]
-        e = blocks[key].rows[0][iveg + 1]
+        v = blocks[key].rows[ir][iveg]
+        e = blocks[key].rows[ir][iveg + 1]
         if e <= 0.0:
             continue        # skip this seed only; a degenerate error is
         rows.append((meta.get("seed", "?"), v, e,   # exactly when the rest
@@ -582,13 +651,312 @@ def report_seed_spread(usable, key, iveg, mean, chi2):
         print("           unconverged VEGAS adaptation, not as statistics.")
 
 
+def seed_consistency(usable, key):
+    """Return the central-row seed values, errors, and their chi2/dof."""
+    ref_path = usable[0][0]
+    ref = next(blocks[key] for _, _, blocks, _ in usable[:1])
+    iveg = ref.col("vegas", ref_path)
+    ir = _central_row(ref, ref_path)
+    vals = [blocks[key].rows[ir][iveg] for _, _, blocks, _ in usable]
+    errs = [blocks[key].rows[ir][iveg + 1] for _, _, blocks, _ in usable]
+    _, _, chi2 = weighted_mean(vals, errs)
+    return vals, errs, chi2
+
+
+def _channel_mean_err(blk, ir, i_hw):
+    """(mean, err) for one channel's own row, from its own hw/hww columns."""
+    n = blk.niter
+    hw, hww = blk.rows[ir][i_hw], blk.rows[ir][i_hw + 1]
+    return pooled(n * hw, n * n * hww, n)
+
+
+def sum_channels(paths, outfile, force=False, result_mode="rs_sum",
+                 count_label="nchannels"):
+    """Sum several already-merged, single-channel reports into one total.
+
+    Each input is treated as ONE independent measurement of a DIFFERENT
+    physical quantity (a different channel's contribution to the real
+    correction) -- means add, errors combine in quadrature. This is the
+    opposite arithmetic from merge()'s seed-pooling, which treats its inputs
+    as repeated measurements of the SAME quantity.
+    """
+    if os.path.exists(outfile) and not force:
+        print("WARNING: output already exists, skipping channel sum: %s" % outfile,
+              file=sys.stderr)
+        print("         pass --force to overwrite it", file=sys.stderr)
+        return
+
+    parsed = []
+    for p in paths:
+        meta, blocks, card = parse_report(p)
+        merged_count = any(key in meta for key in ("nruns", "nchannels", "ncomponents"))
+        merged_seed = str(meta.get("seed", "")).startswith(("merged", "sum_channels"))
+        if not merged_count and not merged_seed:
+            sys.exit("ERROR: %s does not look like an already-merged report "
+                     "(no merge count or merged seed header) -- run "
+                     "merge_runs.py on its seeds first" % p)
+        parsed.append((p, meta, blocks, card))
+
+    ref_path, ref_meta, ref_blocks, ref_card = parsed[0]
+
+    # Same physics, different channel: check everything CONSISTENCY checks
+    # except 'mode' (expected to differ -- rs_gg vs rs_qg vs rs_qqbar),
+    # 'amplitude' (the channel-specific process label), and
+    # 'npoints_per_iter' (each channel's own VEGAS grid is unrelated to the
+    # others' -- summing physically independent integrals never requires
+    # them to share a sample unit size the way pooling does).
+    channel_keys = [k for k in CONSISTENCY
+                    if k not in ("mode", "amplitude", "npoints_per_iter")]
+    for key in channel_keys:
+        dflt = CONSISTENCY[key]
+        ref = ref_meta.get(key, dflt)
+        for p, m, _, _ in parsed[1:]:
+            got = m.get(key, dflt)
+            if got != ref:
+                sys.exit("ERROR: %s differs between %s (%r) and %s (%r) -- these "
+                         "are not channels of the same run" % (key, ref_path, ref, p, got))
+
+    modes = [m.get("mode", "?") for _, m, _, _ in parsed]
+    dupes = sorted(set(m for m in modes if modes.count(m) > 1))
+    if dupes:
+        sys.exit("ERROR: the same channel appears twice: %s" % ", ".join(dupes))
+
+    for p, _, blocks, _ in parsed[1:]:
+        if list(blocks.keys()) != list(ref_blocks.keys()):
+            sys.exit("ERROR: %s has different report sections than %s -- cannot sum"
+                     % (p, ref_path))
+
+    nvar = int(ref_meta.get("nvar", "1"))
+    n_min = min(min(b.niter for b in blocks.values()) for _, _, blocks, _ in parsed)
+    if n_min < 2:
+        sys.exit("ERROR: at least one input has fewer than 2 iterations -- "
+                 "cannot recover a usable error bar")
+
+    with open(outfile, "w") as out:
+        out.write("# ==== RUN ====\n")
+        out.write("# mode = %s(%s)\n" % (result_mode, ",".join(modes)))
+        out.write("# generator = %s\n" % ref_meta.get("generator", ""))
+        out.write("# seed = sum_channels(%s)\n"
+                  % ",".join(str(m.get("seed", "?")) for _, m, _, _ in parsed))
+        out.write("# %s = %d\n" % (count_label, len(parsed)))
+        out.write("# ecm = %s\n" % ref_meta.get("ecm", ""))
+        out.write("# pdf = %s\n" % ref_meta.get("pdf", ""))
+#        for key in ("cuts", "scales", "nvar", "nscale", "variation_order"):
+        for key in ("cuts", "scales", "nvar", "nscale", "scale_order",
+            "npdfvar", "pdf_central_member", "variation_order"):
+            if key in ref_meta:
+                out.write("# %s = %s\n" % (key, ref_meta[key]))
+        out.write("# ==== END RUN ====\n\n")
+
+        if ref_card:
+            out.write("# ==== INPUT CARD ====\n")
+            for line in ref_card:
+                out.write(line + "\n")
+            out.write("# ==== END INPUT CARD ====\n\n")
+
+        for key, ref in ref_blocks.items():
+            title = ("%s %s" % (ref.contrib, ref.name)).strip()
+            out.write("# ==== %s %s ====\n" % (ref.kind, title))
+            out.write("# niter = %d\n" % n_min)
+            out.write("# %s = %d\n" % (count_label, len(parsed)))
+            for k in ("nbins", "npoints_per_iter", "xlabel"):
+                if k in ref.meta:
+                    out.write("# %s = %s\n" % (k, ref.meta[k]))
+            out.write("# columns: %s\n" % ref.colline)
+
+            if ref.kind == "TOTAL":
+                out.write("# chi2_per_it here is the LARGEST of the channels' own\n")
+                out.write("# seed-spread chi2/dof, not a chi2 of this sum.\n")
+                _write_summed_total(out, key, ref, parsed, n_min)
+            else:
+                for line in ref.header:
+                    out.write(line + "\n")
+                _write_summed_hist(out, key, ref, parsed, n_min, nvar)
+
+            out.write("# ==== END %s %s ====\n\n" % (ref.kind, title))
+
+    print("summed %d channel(s): %s -> %s"
+         % (len(parsed), ", ".join(modes), outfile))
+
+
+def _write_summed_total(out, key, ref, parsed, n_min):
+    imur = ref.col("mur", parsed[0][0])
+    imuf = ref.col("muf", parsed[0][0])
+    isw  = ref.col("sum_w", parsed[0][0])
+    has_pdfmem = "pdf_member" in ref.cols
+    ipdf = ref.col("pdf_member", parsed[0][0]) if has_pdfmem else None
+
+    for ir, ref_row in enumerate(ref.rows):
+        means, errs, vegas_means, vegas_errs = [], [], [], []
+        for p, _, blocks, _ in parsed:
+            blk = blocks[key]
+            m, e = _channel_mean_err(blk, ir, isw)
+            means.append(m); errs.append(e)
+            iveg = blk.col("vegas", p)
+            vegas_means.append(blk.rows[ir][iveg])
+            vegas_errs.append(blk.rows[ir][iveg + 1])
+
+        histo = sum(means)
+        histo_err = math.sqrt(sum(e * e for e in errs))
+        vegas = sum(vegas_means)
+        vegas_err = math.sqrt(sum(e * e for e in vegas_errs))
+        chi2 = 0.0
+        hw = histo
+        hww = hw * hw / n_min + (histo_err ** 2) * (n_min - 1) / n_min
+
+        if has_pdfmem:
+            out.write("%10.4f%10.4f%6d%24.16E%24.16E%24.16E%24.16E%24.16E%24.16E%24.16E\n"
+                      % (ref_row[imur], ref_row[imuf], int(ref_row[ipdf]),
+                         vegas, vegas_err, chi2, histo, histo_err, hw, hww))
+        else:
+            out.write("%10.4f%10.4f%24.16E%24.16E%24.16E%24.16E%24.16E%24.16E%24.16E\n"
+                      % (ref_row[imur], ref_row[imuf], vegas, vegas_err, chi2,
+                         histo, histo_err, hw, hww))
+
+
+def _write_summed_hist(out, key, ref, parsed, n_min, nvar):
+    nfix = n_fixed_columns(ref.kind)
+    for ir, ref_row in enumerate(ref.rows):
+        width = bin_width(ref.kind, ref_row)
+        out.write("".join("%24.16E" % ref_row[i] for i in range(nfix)))
+
+        means_by_var, errs_by_var = [], []
+        for iv in range(nvar):
+            means, errs = [], []
+            for p, _, blocks, _ in parsed:
+                blk = blocks[key]
+                idx = accumulator_index(blk, iv, nvar, p)
+                m, e = _channel_mean_err(blk, ir, idx)
+                means.append(m); errs.append(e)
+            means_by_var.append(sum(means))
+            errs_by_var.append(math.sqrt(sum(e * e for e in errs)))
+
+        for total, err in zip(means_by_var, errs_by_var):
+            out.write("%24.16E%24.16E" % (total / width, err / width))
+        for total, err in zip(means_by_var, errs_by_var):
+            hw = total
+            hww = hw * hw / n_min + (err ** 2) * (n_min - 1) / n_min
+            out.write("%24.16E%24.16E" % (hw, hww))
+        out.write("\n")
+
+
+def resolve_directory(directory):
+    """Return the seed-tagged reports in one contribution output directory.
+
+    Report directories contain files such as ``born_1001.dat`` and the
+    untagged ``born.dat`` produced by this script. Only the tagged files are
+    selected, so passing a directory cannot accidentally merge its own output
+    back into the input set. A directory must contain one report stem; this
+    catches passing the campaign root, where several contributions live side
+    by side.
+    """
+    directory = Path(directory)
+    if not directory.is_dir():
+        raise ValueError("%s is not a directory" % directory)
+
+    candidates = sorted(directory.glob("*.dat"))
+    tagged = []
+    stems = set()
+    for path in candidates:
+        if path.name.startswith("checkpoint_"):
+            continue
+        match = re.match(r"^(.*)_([0-9]+)(\.[^.]+)$", path.name)
+        if match:
+            stems.add(match.group(1) + match.group(3))
+            tagged.append(path)
+
+    if not tagged:
+        raise ValueError("%s contains no seed-tagged report files (*.dat)" % directory)
+    if len(stems) != 1:
+        raise ValueError("%s contains multiple report stems: %s; pass one "
+                         "contribution directory" %
+                         (directory, ", ".join(sorted(stems))))
+    return [str(path) for path in tagged]
+
+
+def merge_campaign(directory, force):
+    """Merge every populated contribution directory below a campaign root."""
+    directory = Path(directory)
+    merged = {}
+    found = False
+    for relative, stem in CAMPAIGN_LAYOUT:
+        leaf = directory / relative
+        if not leaf.is_dir():
+            continue
+        try:
+            inputs = resolve_directory(leaf)
+        except ValueError:
+            continue
+        found = True
+        outfile = leaf / (stem + ".dat")
+        if outfile.exists() and not force:
+            print("WARNING: output already exists, skipping merge: %s" % outfile,
+                  file=sys.stderr)
+            print("         pass --force to overwrite it", file=sys.stderr)
+        else:
+            merge(inputs, str(outfile))
+        merged[relative] = str(outfile)
+
+    components = ("born", "virt", "kp", "rs")
+    if all(component in merged for component in components):
+        sum_channels([merged[component] for component in components],
+                     str(directory / "nlo.dat"), force,
+                     result_mode="nlo", count_label="ncomponents")
+
+    if not found:
+        raise ValueError("%s contains no recognized seed-report directories" % directory)
+
+
 def main():
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("files", nargs="+", help="seed-tagged reports (LO_*.dat)")
+    ap.add_argument("files", nargs="+", help="seed-tagged reports (LO_*.dat), "
+                    "or one contribution output directory")
     ap.add_argument("-o", "--output", default=None,
-                    help="merged report (default: the untagged name beside the inputs)")
+                    help="merged report "
+                         "(default: the untagged name beside the inputs)")
+    ap.add_argument("--force", action="store_true",
+                    help="overwrite an existing output report")
+    ap.add_argument("--sum-channels", action="store_true",
+                    help="sum several already-merged, single-channel reports " +
+                         "(e.g. rs_gg.dat, rs_qg.dat, rs_qqbar.dat) into one " +
+                         "total, combining errors in quadrature -- unlike the " +
+                         "default merge, these are DIFFERENT physical " +
+                         "quantities being added, not the same quantity pooled " +
+                         "across seeds")
+    ap.add_argument("--sum-components", action="store_true",
+                    help="sum four merged contribution reports into an NLO report")
     a = ap.parse_args()
+
+    if a.sum_channels and a.sum_components:
+        ap.error("--sum-channels and --sum-components are mutually exclusive")
+
+    if len(a.files) == 1 and os.path.isdir(a.files[0]) and not a.sum_channels and not a.sum_components:
+        try:
+            directory = Path(a.files[0])
+            if any((directory / relative).is_dir() for relative, _ in CAMPAIGN_LAYOUT):
+                merge_campaign(directory, a.force)
+                return
+            a.files = resolve_directory(directory)
+        except ValueError as exc:
+            ap.error(str(exc))
+
+    if a.sum_channels:
+        if len(a.files) < 2:
+            sys.exit("ERROR --sum-channels takes at least two already-merged reports")
+        if a.output is None:
+            sys.exit("ERROR --sum-channels requires -o/--output")
+        sum_channels(a.files, a.output, a.force)
+        return
+
+    if a.sum_components:
+        if len(a.files) != 4:
+            sys.exit("ERROR --sum-components requires exactly four merged reports")
+        if a.output is None:
+            sys.exit("ERROR --sum-components requires -o/--output")
+        sum_channels(a.files, a.output, a.force,
+                     result_mode="nlo", count_label="ncomponents")
+        return
 
     out = a.output
     if out is None:
@@ -599,6 +967,12 @@ def main():
                            re.sub(r"_\d+(\.[^.]*)$", r"\1", base))
         if os.path.abspath(out) == os.path.abspath(a.files[0]):
             sys.exit("ERROR: cannot infer an output name from %r -- pass -o" % base)
+
+    if os.path.exists(out) and not a.force:
+        print("WARNING: output already exists, skipping merge: %s" % out,
+              file=sys.stderr)
+        print("         pass --force to overwrite it", file=sys.stderr)
+        return
 
     merge(a.files, out)
 
