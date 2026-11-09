@@ -1,5 +1,5 @@
 !#################################################################################!
-! The Catani-Seymour KP term for p p -> e+ e-, on Born kinematics.
+! The Catani-Seymour KP term for p p -> gamma gamma, on Born kinematics.
 !
 !   yy(1), yy(2)   Born momentum fractions xa, xb, flat
 !   yy(3), yy(4)   PSGen final-state variables

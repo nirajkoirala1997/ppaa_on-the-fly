@@ -171,12 +171,14 @@ def card_bool(card, sec, key, default):
 
 
 def cuts_label(card, ecm):
-    """cuts_mod.f90 cuts_label: the m(ee) window."""
-    low = card_float(card, "cuts", "mee_min", 0.0)
-    high = card_float(card, "cuts", "mee_max", 0.0)
+    """cuts_mod.f90 cuts_label: photon pT and eta, and the m(gamma gamma) window."""
+    pta_min = card_float(card, "cuts", "pta_min", 0.0)
+    etaa_max = card_float(card, "cuts", "etaa_max", 0.0)
+    low = card_float(card, "cuts", "maa_min", 0.0)
+    high = card_float(card, "cuts", "maa_max", 0.0)
     if high <= 0.0:
         high = ecm
-    return "mee=%s:%s" % (f0(low, 3), f0(high, 3))
+    return "pta>%s,etaa<%s,maa=%s:%s" % (f0(pta_min, 3), f0(etaa_max, 3), f0(low, 3), f0(high, 3))
 
 
 def scales_label(card):
@@ -197,10 +199,10 @@ def scales_label(card):
 # here must carry exactly what the Fortran writer would -- update this table
 # whenever one of those strings changes.
 AMPLITUDE = {
-    "born": "recola: q q~ -> e+ e-",
-    "kp":   "recola: KP on q q~ -> e+ e-",
-    "virt": "recola: q q~ -> e+ e- one-loop QCD + I",
-    "rs":   "recola: q q~, q g, g q -> e+ e- + parton",
+    "born": "recola: q q~ -> A A",
+    "kp":   "recola: KP on q q~ -> A A",
+    "virt": "recola: q q~ -> A A one-loop QCD + I",
+    "rs":   "recola: q q~, q g, g q -> A A + parton",
 }
 
 

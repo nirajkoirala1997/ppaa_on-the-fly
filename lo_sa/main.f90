@@ -1,6 +1,6 @@
 program drell_yan_lo
 !#################################################################################!
-! p p -> e+ e- at LO.
+! p p -> gamma gamma at LO.
 !
 !     ./runLO [seed] [outdir]
 !
@@ -27,7 +27,7 @@ program drell_yan_lo
     implicit none
 
     character(len=*), parameter :: contribution = 'born'
-    character(len=*), parameter :: amplitude_label = 'recola: q q~ -> e+ e-'
+    character(len=*), parameter :: amplitude_label = 'recola: q q~ -> A A'
 
     integer            :: ndim, ios, start_it
     logical            :: converged

@@ -81,7 +81,7 @@ contains
 
 ! Masses, particle names, cuts, particle indices, banner.
     sqsc = sqsc_in
-! The e+ e- pair is generated inside this m(ee) window (0 = no edge).
+! The photon pair is generated inside this m(gamma gamma) window (0 = no edge).
     sqs_win_lo = window_low
     sqs_win_hi = window_high
     call param_trans(unit)

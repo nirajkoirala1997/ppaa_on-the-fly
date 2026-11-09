@@ -3,7 +3,7 @@
 ###  There is no dependency tracking: `make clean` after changing a module.         ###
 #######################################################################################
 
-PROG   = check_recola_points
+PROG  ?= check_recola_points
 OBJDIR = objects
 MODDIR = modules
 COMMON = ../common

@@ -1,10 +1,10 @@
 !#################################################################################!
-! Virtual + Catani-Seymour I-operator for p p -> e+ e-, on Born kinematics.
+! Virtual + Catani-Seymour I-operator for p p -> gamma gamma, on Born kinematics.
 !
 ! In units of n = alpha_s(mu)/(2 pi) CF Born, with L = log(mu^2/shat), in Recola's
 ! normalisation (the COLI one; OpenLoops' with polenorm = 1):
 !
-!   virtual = -2/eps^2 - 3/eps + (A - L^2 - 3 L),   A = -8 + 4 pi^2/3 at L = 0
+!   virtual = -2/eps^2 - 3/eps + (A(event) - L^2 - 3 L),   A from Recola per event
 !   I       = +2/eps^2 + 3/eps + (10 - 4 pi^2/3 + L^2 + 3 L)
 !
 ! so their finite sum is independent of mu. The poles are asserted on every event.

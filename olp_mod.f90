@@ -1,18 +1,18 @@
 !#####################################################################
-! Recola 1 amplitudes for p p -> e+ e- at NLO QCD.
+! Recola 1 amplitudes for p p -> gamma gamma at NLO QCD.
 !
 ! One module for every program: lo_sa, kp_sa, virt_sa and rs_sa only differ in
 ! which process groups they ask olp_init to generate.
 !
 ! Flavour index f = 1..5 is the PDG code: d, u, s, c, b. Legs 3 and 4 are always
-! e+ and e-; leg 5 is the radiated parton.
+! the photons; leg 5 is the radiated parton.
 !
 ! Real-emission channels use the same numbering as DYN's ol_interface:
-!    1..5    q     q~  -> e+ e- g
-!    6..10   g     q   -> e+ e- q
-!   11..15   q     g   -> e+ e- q
-!   16..20   g     q~  -> e+ e- q~
-!   21..25   q~    g   -> e+ e- q~
+!    1..5    q     q~  -> A A g
+!    6..10   g     q   -> A A q
+!   11..15   q     g   -> A A q
+!   16..20   g     q~  -> A A q~
+!   21..25   q~    g   -> A A q~
 !
 ! Every returned value is summed over final-state and averaged over
 ! initial-state colour and helicity by Recola.
@@ -25,11 +25,11 @@ module olp_mod
 
   use iso_fortran_env, only: real64
   use recola
-  use run_card_mod,    only: mZ_in, wZ_in, mW_in, wW_in, mtop_in, wtop_in, gfermi
+  use run_card_mod,    only: mZ_in, wZ_in, mW_in, wW_in, mtop_in, wtop_in
   implicit none
   private
   public :: olp_init, olp_set_alphas, olp_born, olp_virtual, olp_real
-  public :: olp_set_collier_dir
+  public :: olp_set_collier_dir, olp_alpha_ew
   public :: NFLAVOUR, NREAL_CHANNEL
 
   integer, parameter :: NFLAVOUR = 5, NREAL_CHANNEL = 25
@@ -80,7 +80,7 @@ contains
   call set_pole_mass_charm_rcl  (0d0, 0d0)
   call set_pole_mass_strange_rcl(0d0)
   call set_pole_mass_bottom_rcl (0d0, 0d0)
-  call use_gfermi_scheme_rcl(a=alpha_gmu_complex())
+  call use_alpha0_scheme_rcl(a=alpha_zero())
   call set_alphas_rcl(alphas_ref, mu_ref, -1)
 
   if (with_loop) then
@@ -95,7 +95,7 @@ contains
   if (with_loop) born_order = 'NLO'
   do flavour = 1, NFLAVOUR
      call define_process_rcl(flavour,                                         &
-          quark_name(flavour)//' '//quark_name(flavour)//'~ -> e+ e-',        &
+          quark_name(flavour)//' '//quark_name(flavour)//'~ -> A A',        &
           trim(born_order))
      if (with_loop) then
         call unselect_all_gs_powers_LoopAmpl_rcl(flavour)
@@ -119,17 +119,12 @@ contains
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-! G_mu alpha built from the COMPLEX W and Z masses, as OpenLoops does under
-! ew_scheme = 1 and as DYN therefore used. Recola's own G_mu option uses real
-! masses, which gives an alpha smaller by a factor 1.000484 at these inputs.
-  real(real64) function alpha_gmu_complex() result(alpha)
-  real(real64), parameter :: PI_VALUE = 3.141592653589793238462643d0
-  complex(real64) :: mass2_w, mass2_z
-
-  mass2_w = cmplx(mW_in**2, -mW_in*wW_in, kind=real64)
-  mass2_z = cmplx(mZ_in**2, -mZ_in*wZ_in, kind=real64)
-  alpha = sqrt(2d0)/PI_VALUE*gfermi*abs(mass2_w*(1d0 - mass2_w/mass2_z))
-  end function alpha_gmu_complex
+! The on-shell photons couple with alpha(0). The MATRIX ppaa02 Born equals this
+! choice although its model.dat sets the G_mu scheme.
+  real(real64) function alpha_zero() result(alpha)
+  real(real64), parameter :: INVERSE_ALPHA_ZERO = 137.036d0
+  alpha = 1d0/INVERSE_ALPHA_ZERO
+  end function alpha_zero
 
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -142,11 +137,11 @@ contains
   flavour = mod(channel-1, NFLAVOUR) + 1
   q = quark_name(flavour)
   select case ((channel-1)/NFLAVOUR)
-    case (0) ; process = q//' '//q//'~ -> e+ e- g'
-    case (1) ; process = 'g '//q//' -> e+ e- '//q
-    case (2) ; process = q//' g -> e+ e- '//q
-    case (3) ; process = 'g '//q//'~ -> e+ e- '//q//'~'
-    case (4) ; process = q//'~ g -> e+ e- '//q//'~'
+    case (0) ; process = q//' '//q//'~ -> A A g'
+    case (1) ; process = 'g '//q//' -> A A '//q
+    case (2) ; process = q//' g -> A A '//q
+    case (3) ; process = 'g '//q//'~ -> A A '//q//'~'
+    case (4) ; process = q//'~ g -> A A '//q//'~'
     case default ; process = ''
   end select
   end function real_process_string
@@ -154,6 +149,10 @@ contains
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ! Per-event coupling and scales. muIR follows muR for the loop.
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  real(real64) function olp_alpha_ew() result(alpha)
+  alpha = alpha_zero()
+  end function olp_alpha_ew
 
   subroutine olp_set_alphas(alphas, mu)
   real(real64), intent(in) :: alphas, mu

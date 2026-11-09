@@ -1,5 +1,5 @@
 !#################################################################################!
-! The leading-order integrand for p p -> e+ e-.
+! The leading-order integrand for p p -> gamma gamma.
 !
 !   yy(1), yy(2)   beam momentum fractions, flat
 !   yy(3), yy(4)   PSGen final-state variables

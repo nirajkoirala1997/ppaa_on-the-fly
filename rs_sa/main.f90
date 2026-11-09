@@ -1,6 +1,6 @@
 program drell_yan_rs
 !#################################################################################!
-! p p -> e+ e- at NLO: real emission minus Catani-Seymour dipoles.
+! p p -> gamma gamma at NLO: real emission minus Catani-Seymour dipoles.
 !
 !     ./runRS [seed] [outdir]
 !
@@ -9,7 +9,8 @@ program drell_yan_rs
 !#################################################################################!
     use iso_fortran_env, only : real64, output_unit
     use run_state_mod,   only : ecm_had, s, xmur, xmuf, scale_dynamic, xcentral_factor
-    use cuts_mod,        only : cuts_init, cuts_label, cuts_mee_window
+    use cuts_mod,        only : cuts_init, cuts_label, cuts_maa_window
+    use photon_isolation_mod, only : photon_isolation_init
     use psgen_interface, only : psgen_init, psgen_ndim
     use card_parser_mod, only : card_report_unused, card_stamp
     use olp_mod,         only : olp_init, olp_set_collier_dir
@@ -27,7 +28,7 @@ program drell_yan_rs
     implicit none
 
     character(len=*), parameter :: contribution = 'rs'
-    character(len=*), parameter :: amplitude_label = 'recola: q q~, q g, g q -> e+ e- + parton'
+    character(len=*), parameter :: amplitude_label = 'recola: q q~, q g, g q -> A A + parton'
 
     integer            :: ndim, ios, start_it
     logical            :: converged
@@ -66,6 +67,7 @@ program drell_yan_rs
     xcentral_factor = central_factor
 
     call cuts_init(ecm)
+    call photon_isolation_init()
     call pdfvar_init(pdf_set, pdf_member, pdf_variations)
 
     write(collier_dir,'(A,I0)') '.collier/rs_', seed
@@ -84,7 +86,7 @@ program drell_yan_rs
     write(*,'(a,i0,a,i0)') '  production = ', n_prod,  ' x ', it_prod
     flush(output_unit)
 
-    call cuts_mee_window(window_low, window_high)
+    call cuts_maa_window(window_low, window_high)
     call psgen_init(6, sqsc_in, window_low, window_high)
     flush(output_unit)
 

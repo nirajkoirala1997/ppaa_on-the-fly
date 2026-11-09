@@ -28,3 +28,4 @@ output.rcl
 *.log
 common/PSGen_1.1/**/*~
 common/PSGen_1.1/**/a.out
+checks/check_diphoton_amplitudes

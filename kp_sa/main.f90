@@ -1,6 +1,6 @@
 program drell_yan_kp
 !#################################################################################!
-! p p -> e+ e- at NLO: the Catani-Seymour KP term.
+! p p -> gamma gamma at NLO: the Catani-Seymour KP term.
 !
 !     ./runKP [seed] [outdir]
 !
@@ -27,7 +27,7 @@ program drell_yan_kp
     implicit none
 
     character(len=*), parameter :: contribution = 'kp'
-    character(len=*), parameter :: amplitude_label = 'recola: KP on q q~ -> e+ e-'
+    character(len=*), parameter :: amplitude_label = 'recola: KP on q q~ -> A A'
 
     integer            :: ndim, ios, start_it
     logical            :: converged

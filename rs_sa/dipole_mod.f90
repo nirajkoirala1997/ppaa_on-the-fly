@@ -1,5 +1,5 @@
 !#####################################################################
-! Initial-initial Catani-Seymour dipoles for p p -> e+ e-.
+! Initial-initial Catani-Seymour dipoles for p p -> gamma gamma.
 !
 ! A two-coloured-parton Born has T1.T2 = -CF, so no colour-correlation call is
 ! needed and the colour factor cancels against 1/T_ai^2. g -> q q~ splittings

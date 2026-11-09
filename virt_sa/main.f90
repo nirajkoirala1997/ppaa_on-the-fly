@@ -1,6 +1,6 @@
 program drell_yan_virt
 !#################################################################################!
-! p p -> e+ e- at NLO: renormalised one-loop interference plus I-operator.
+! p p -> gamma gamma at NLO: renormalised one-loop interference plus I-operator.
 !
 !     ./runVirt [seed] [outdir]
 !
@@ -27,7 +27,7 @@ program drell_yan_virt
     implicit none
 
     character(len=*), parameter :: contribution = 'virt'
-    character(len=*), parameter :: amplitude_label = 'recola: q q~ -> e+ e- one-loop QCD + I'
+    character(len=*), parameter :: amplitude_label = 'recola: q q~ -> A A one-loop QCD + I'
 
     integer            :: ndim, ios, start_it
     logical            :: converged

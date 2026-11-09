@@ -1,12 +1,12 @@
 !#################################################################################!
-! Real emission minus dipoles for p p -> e+ e-.
+! Real emission minus dipoles for p p -> gamma gamma.
 !
 !   yy(1), yy(2)  beam momentum fractions, flat
 !   yy(3:7)       PSGen final-state variables
 !   yy(8)         PSGen channel
 !
 ! Real and dipoles are each alpha_s^1, so scale variations replay one amplitude
-! call with AL/AL_c. m(ee) is unchanged by the dipole map, but each term is still
+! call with AL/AL_c. m(gamma gamma) is unchanged by the dipole map, but each term is still
 ! judged at its own kinematics, and each fills histograms at its own kinematics.
 !
 ! Channels and which dipole subtracts them:
@@ -19,6 +19,7 @@
   use run_state_mod,     only : ecm_had, xmur, xmuf, xcentral_factor, scale_dynamic
   use run_card_mod,      only : hbarc2_in, del_s, del_c
   use cuts_mod,          only : event_cut
+  use photon_isolation_mod, only : photon_isolated
   use olp_mod,           only : olp_real, olp_set_alphas, NFLAVOUR, NREAL_CHANNEL
   use dipole_mod,        only : dipoles_evaluate
   use ii_dipole_map_mod, only : ii_dipole_map
@@ -69,7 +70,10 @@
 
     call ii_dipole_map(plab(:,1), plab(:,2), plab(:,3), plab(:,4), plab(:,5), ptilde)
 
+! Isolation needs the radiated parton, so it applies to the real term only.
     keep_real   = event_cut(plab)
+    if (keep_real) keep_real = photon_isolated(plab(:,3), plab(:,5), 1)      &
+                         .and. photon_isolated(plab(:,4), plab(:,5), 1)
     keep_dip(1) = event_cut(ptilde(:,:,1))
     keep_dip(2) = event_cut(ptilde(:,:,2))
     if (.not. keep_real .and. .not. any(keep_dip)) return

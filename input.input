@@ -1,8 +1,8 @@
 # One card for lo_sa, kp_sa, virt_sa and rs_sa. Seed, cuts, histograms and
 # physics values are shared; only each program's [stats_*] block differs.
 #
-# 13.6 TeV, one PDF set for all four programs: 10 GeV bins
-# centred on Q = 180..220, muR = muF = m(ee).
+# p p -> gamma gamma, MATRIX ppaa02 setup: 13.6 TeV, muR = muF = m(gamma gamma).
+# The NLO set below is for the NLO pieces; compare LO with NNPDF30_lo_as_0118.
 
 [run]
 seed      = 1001
@@ -37,13 +37,13 @@ it_prod   = 20
 epsrel    = 0.0
 
 [output]
-dir       = ../summary/run_01
+dir       = ../summary/run_02_high_mass
 
 [beam]
 ecm       = 13600.0
 
 [pdf]
-set        = MMHT2014nlo68cl
+set        = NNPDF30_nlo_as_0118
 member     = 0
 variations = no
 
@@ -52,21 +52,20 @@ dynamic   = yes
 mur_fixed = 91.1876
 muf_fixed = 91.1876
 
-# DYN's committed constants_mod.f90. The Z and W widths are physical here:
-# the Z is resonant in the Drell-Yan amplitude.
+# MATRIX ppaa02 model.dat.
 [masses]
 mZ        = 91.1876
 wZ        = 2.4952
-mW        = 80.3850115091
+mW        = 80.385
 wW        = 2.0854
-mH        = 125.10
-wH        = 0.0
-mtop      = 172.57
-wtop      = 0.0
+mH        = 125.0
+wH        = 0.00407
+mtop      = 173.2
+wtop      = 1.44262
 
-# DYN's LO value. DYN's real piece used 1.16639e-5, a 1e-5 relative difference.
+# MATRIX ppaa02 model.dat: G_mu scheme with complex masses.
 [ew]
-gfermi    = 1.16638e-5
+gfermi    = 1.16639e-5
 aewm1     = 128.0
 
 [constants]
@@ -88,12 +87,13 @@ del_c     = 1.0e-6
 [virtual]
 terms     = virt_iop
 
-# Window covering only the five validation bins. mee_min must be > 0.
+# MATRIX ppaa02 acceptance. pta_min and maa_min must be > 0.
 [cuts]
-mee_min   = 175.0
-mee_max   = 225.0
+pta_min   = 20.0
+etaa_max  = 2.47
+maa_min   = 500.0
 
-# Kept for later photon studies; no integrand applies it yet.
+# Frixione, mode 1 = epsilon form, as MATRIX frixione_isolation = 1.
 [isolation]
 mode      = 1
 n         = 1.0
@@ -102,11 +102,7 @@ et_max    = 5.0
 delta_0   = 0.4
 m_hard    = 91.1876
 
-# Legs: 3 = e+, 4 = e-. One q q~ amplitude serves both beam orderings, so only
-# observables even in cos(theta*) are exact: no single-lepton eta or y, no dr.
+# Legs 3 and 4 are the photons. High-mass run: every MATRIX m_gamgam edge from
+# 500 to 2000 GeV is a multiple of 10, so its wider bins are sums of these.
 [histograms]
-mee     obs = mass    legs = 3,4   nbins = 5     xmin = 175.0  xmax = 225.0
-ptep    obs = pt      leg  = 3     nbins = 40    xmin = 0.0    xmax = 200.0
-ptem    obs = pt      leg  = 4     nbins = 40    xmin = 0.0    xmax = 200.0
-ptll    obs = pt      legs = 3,4   nbins = 40    xmin = 0.0    xmax = 100.0
-yll     obs = y       legs = 3,4   nbins = 30    xmin = -4.0   xmax = 4.0
+maa     obs = mass    legs = 3,4   nbins = 150   xmin = 500.0   xmax = 2000.0
